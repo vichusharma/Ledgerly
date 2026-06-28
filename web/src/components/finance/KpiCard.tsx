@@ -13,9 +13,9 @@ interface KpiCardProps {
 
 export function KpiCard({ title, value, subtitle, trend, className }: KpiCardProps) {
   return (
-    <div className={cn("bg-white rounded-xl border border-surface-border p-5", className)}>
-      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{title}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900 money">{value}</p>
+    <div className={cn("bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5", className)}>
+      <p className="text-xs font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wider">{title}</p>
+      <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-foreground money">{value}</p>
       {(subtitle || trend !== undefined) && (
         <div className="mt-1 flex items-center gap-1">
           {trend !== undefined && (
@@ -28,7 +28,7 @@ export function KpiCard({ title, value, subtitle, trend, className }: KpiCardPro
           {subtitle && (
             <p className={cn(
               "text-xs",
-              trend === undefined ? "text-slate-400" :
+              trend === undefined ? "text-slate-400 dark:text-muted-foreground" :
               trend >= 0 ? "text-success" : "text-danger"
             )}>
               {subtitle}

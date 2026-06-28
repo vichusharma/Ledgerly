@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import { AppShell } from "@/components/AppShell";
 import { apiClient } from "@/lib/api/client";
+import { useLanguage } from "@/lib/context/LanguageContext";
 import { formatMoney, formatPct } from "@/lib/format/money";
 
 interface MonteCarloResult {
@@ -21,13 +22,16 @@ interface FormState {
   years_horizon: string;
 }
 
-const PRESETS = [
-  { label: "Conservateur", mu: "0.04", sigma: "0.08" },
-  { label: "Modéré", mu: "0.07", sigma: "0.12" },
-  { label: "Dynamique", mu: "0.09", sigma: "0.18" },
-];
-
 export default function MonteCarloPage() {
+  const { t } = useLanguage();
+  const mx = t("monteCarlo");
+
+  const PRESETS = [
+    { label: mx.conservative, mu: "0.04", sigma: "0.08" },
+    { label: mx.moderate,     mu: "0.07", sigma: "0.12" },
+    { label: mx.dynamic,      mu: "0.09", sigma: "0.18" },
+  ];
+
   const [form, setForm] = useState<FormState>({
     current_value: "50000",
     monthly_contribution: "500",
@@ -62,19 +66,14 @@ export default function MonteCarloPage() {
       });
       setResult(data);
     } catch {
-      setError("Erreur lors du calcul. Vérifiez les paramètres.");
+      setError(mx.error);
     } finally {
       setLoading(false);
     }
-  }, [form]);
+  }, [form, mx.error]);
 
   const months = result ? result.p50.length : 0;
   const target = parseFloat(form.target_amount);
-
-  // Compute success probability at final month
-  const successRate = result
-    ? (result.p50[months - 1] >= target ? "> 50 %" : "< 50 %")
-    : null;
   const finalP10 = result ? result.p10[months - 1] : null;
   const finalP50 = result ? result.p50[months - 1] : null;
   const finalP90 = result ? result.p90[months - 1] : null;
@@ -85,11 +84,11 @@ export default function MonteCarloPage() {
         tooltip: {
           trigger: "axis",
           formatter: (params: any[]) =>
-            `Mois ${params[0].dataIndex + 1}<br/>` +
+            `${params[0].dataIndex + 1}<br/>` +
             params.map((p: any) => `${p.marker} ${p.seriesName}: ${formatMoney(p.value)}`).join("<br/>"),
         },
         legend: {
-          data: ["P90 (optimiste)", "P50 (médian)", "P10 (pessimiste)"],
+          data: [`P90 (${mx.dynamic})`, `P50`, `P10 (${mx.conservative})`],
           bottom: 0,
           textStyle: { color: "#64748b", fontSize: 12 },
         },
@@ -115,7 +114,7 @@ export default function MonteCarloPage() {
         },
         series: [
           {
-            name: "P90 (optimiste)",
+            name: `P90 (${mx.dynamic})`,
             type: "line",
             data: result.p90,
             smooth: true,
@@ -125,7 +124,7 @@ export default function MonteCarloPage() {
             areaStyle: { color: "rgba(34,197,94,0.06)" },
           },
           {
-            name: "P50 (médian)",
+            name: "P50",
             type: "line",
             data: result.p50,
             smooth: true,
@@ -135,7 +134,7 @@ export default function MonteCarloPage() {
             areaStyle: { color: "rgba(59,130,246,0.08)" },
           },
           {
-            name: "P10 (pessimiste)",
+            name: `P10 (${mx.conservative})`,
             type: "line",
             data: result.p10,
             smooth: true,
@@ -143,9 +142,8 @@ export default function MonteCarloPage() {
             itemStyle: { color: "#ef4444" },
             symbol: "none",
           },
-          // Target line
           {
-            name: "Objectif",
+            name: mx.target,
             type: "line",
             data: Array(months).fill(target),
             lineStyle: { color: "#f59e0b", width: 1.5, type: "dotted" },
@@ -157,19 +155,20 @@ export default function MonteCarloPage() {
       }
     : null;
 
+  const inputClass = "mt-1 w-full text-sm border border-surface-border dark:border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 money bg-white dark:bg-secondary dark:text-foreground";
+  const labelClass = "text-xs font-medium text-slate-500 dark:text-muted-foreground";
+
   return (
     <AppShell>
       <div className="p-6 max-w-5xl mx-auto space-y-6">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Monte Carlo</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            1 000 chemins stochastiques · distribution p10/p50/p90
-          </p>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-foreground">{mx.title}</h1>
+          <p className="text-sm text-slate-500 dark:text-muted-foreground mt-0.5">{mx.subtitle}</p>
         </div>
 
         {/* Parameter panel */}
-        <div className="bg-white rounded-xl border border-surface-border p-5 space-y-5">
-          <h2 className="text-sm font-semibold text-slate-700">Paramètres</h2>
+        <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5 space-y-5">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground">{mx.parameters}</h2>
 
           {/* Presets */}
           <div className="flex gap-2">
@@ -180,7 +179,7 @@ export default function MonteCarloPage() {
                 className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${
                   form.annual_return_mu === p.mu && form.annual_return_sigma === p.sigma
                     ? "bg-brand text-white border-brand"
-                    : "border-surface-border text-slate-600 hover:border-brand/40"
+                    : "border-surface-border dark:border-border text-slate-600 dark:text-muted-foreground hover:border-brand/40"
                 }`}
               >
                 {p.label}
@@ -189,23 +188,23 @@ export default function MonteCarloPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {[
-              { label: "Valeur actuelle (€)", key: "current_value" as const, placeholder: "50000" },
-              { label: "Versement mensuel (€)", key: "monthly_contribution" as const, placeholder: "500" },
-              { label: "Rendement moyen (μ)", key: "annual_return_mu" as const, placeholder: "0.07" },
-              { label: "Volatilité (σ)", key: "annual_return_sigma" as const, placeholder: "0.12" },
-              { label: "Objectif (€)", key: "target_amount" as const, placeholder: "200000" },
-              { label: "Horizon (années)", key: "years_horizon" as const, placeholder: "20" },
-            ].map(({ label, key, placeholder }) => (
+            {([
+              { label: mx.currentValue,   key: "current_value" as const,        placeholder: "50000" },
+              { label: mx.monthlyContrib, key: "monthly_contribution" as const,  placeholder: "500" },
+              { label: mx.meanReturn,     key: "annual_return_mu" as const,      placeholder: "0.07" },
+              { label: mx.volatility,     key: "annual_return_sigma" as const,   placeholder: "0.12" },
+              { label: mx.target,         key: "target_amount" as const,         placeholder: "200000" },
+              { label: mx.horizonYears,   key: "years_horizon" as const,         placeholder: "20" },
+            ] as const).map(({ label, key, placeholder }) => (
               <div key={key}>
-                <label className="text-xs font-medium text-slate-500">{label}</label>
+                <label className={labelClass}>{label}</label>
                 <input
                   type="number"
                   step="any"
                   value={form[key]}
                   onChange={set(key)}
                   placeholder={placeholder}
-                  className="mt-1 w-full text-sm border border-surface-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 money"
+                  className={inputClass}
                 />
               </div>
             ))}
@@ -218,7 +217,7 @@ export default function MonteCarloPage() {
             disabled={loading}
             className="w-full bg-brand text-white font-medium py-2.5 rounded-xl hover:bg-brand-700 disabled:opacity-50 transition-colors text-sm"
           >
-            {loading ? "Calcul en cours…" : "Lancer la simulation"}
+            {loading ? mx.running : mx.run}
           </button>
         </div>
 
@@ -227,19 +226,19 @@ export default function MonteCarloPage() {
           <>
             {/* KPI strip */}
             <div className="grid grid-cols-3 gap-4">
-              {[
-                { label: "Valeur finale P10", value: finalP10! },
-                { label: "Valeur finale P50 (médian)", value: finalP50! },
-                { label: "Valeur finale P90", value: finalP90! },
-              ].map(({ label, value }) => (
-                <div key={label} className="bg-white rounded-xl border border-surface-border p-4">
-                  <p className="text-xs text-slate-500">{label}</p>
+              {([
+                { label: mx.p10, value: finalP10! },
+                { label: mx.p50, value: finalP50! },
+                { label: mx.p90, value: finalP90! },
+              ] as const).map(({ label, value }) => (
+                <div key={label} className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-4">
+                  <p className="text-xs text-slate-500 dark:text-muted-foreground">{label}</p>
                   <p className={`text-lg font-semibold mt-1 money ${value >= target ? "text-success" : "text-danger"}`}>
                     {formatMoney(value)}
                   </p>
                   {value < target && (
                     <p className="text-xs text-danger mt-0.5">
-                      Écart: {formatMoney(target - value)}
+                      {mx.gap} {formatMoney(target - value)}
                     </p>
                   )}
                 </div>
@@ -247,38 +246,36 @@ export default function MonteCarloPage() {
             </div>
 
             {/* Chart */}
-            <div className="bg-white rounded-xl border border-surface-border p-5">
+            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-slate-700">Distribution des trajectoires</h2>
-                <span className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full font-medium">
-                  Objectif: {formatMoney(target)}
+                <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground">{mx.trajectories}</h2>
+                <span className="text-xs bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 px-2 py-1 rounded-full font-medium">
+                  {mx.targetLabel} {formatMoney(target)}
                 </span>
               </div>
               <ReactECharts option={chartOptions!} style={{ height: 380 }} />
             </div>
 
             {/* Interpretation */}
-            <div className="bg-white rounded-xl border border-surface-border p-5">
-              <h2 className="text-sm font-semibold text-slate-700 mb-3">Interprétation</h2>
-              <div className="space-y-2 text-sm text-slate-600">
+            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground mb-3">{mx.interpretation}</h2>
+              <div className="space-y-2 text-sm text-slate-600 dark:text-muted-foreground">
                 <p>
-                  Dans le <strong>scénario médian (P50)</strong>, votre portefeuille atteint{" "}
-                  <span className="money font-medium">{formatMoney(finalP50!)}</span> après{" "}
-                  {form.years_horizon} ans — {finalP50! >= target ? "✓ objectif atteint" : "✗ objectif non atteint"}.
+                  <strong>{mx.p50text}</strong>{" "}
+                  <span className="money font-medium">{formatMoney(finalP50!)}</span>{" "}
+                  {mx.p50after} {form.years_horizon} — {finalP50! >= target ? mx.achieved : mx.notAchieved}.
                 </p>
                 <p>
-                  Dans le <strong>scénario pessimiste (P10)</strong> — les 10 % de cas les plus défavorables —
-                  la valeur finale est{" "}
+                  <strong>{mx.p10text}</strong>{" "}
                   <span className="money font-medium">{formatMoney(finalP10!)}</span>.
                 </p>
                 <p>
-                  Dans le <strong>scénario optimiste (P90)</strong>, votre portefeuille atteint{" "}
+                  <strong>{mx.p90text}</strong>{" "}
                   <span className="money font-medium">{formatMoney(finalP90!)}</span>.
                 </p>
-                <p className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-50">
-                  Hypothèses: rendement annuel μ = {formatPct(parseFloat(form.annual_return_mu))},
-                  volatilité σ = {formatPct(parseFloat(form.annual_return_sigma))}.
-                  Les simulations ne garantissent pas les rendements futurs.
+                <p className="text-xs text-slate-400 dark:text-muted-foreground mt-3 pt-3 border-t dark:border-border">
+                  {mx.assumptions} {formatPct(parseFloat(form.annual_return_mu))}{mx.volatilityLabel}
+                  {formatPct(parseFloat(form.annual_return_sigma))}{mx.disclaimer}
                 </p>
               </div>
             </div>

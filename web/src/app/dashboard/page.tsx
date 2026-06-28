@@ -6,6 +6,7 @@ import { NetWorthChart } from "@/components/charts/NetWorthChart";
 import { AllocationChart } from "@/components/charts/AllocationChart";
 import { useNetWorth, useNetWorthSeries, usePortfolioPerformance, usePortfolioAllocation } from "@/lib/api/hooks";
 import { useScope } from "@/lib/hooks/useScope";
+import { useLanguage } from "@/lib/context/LanguageContext";
 import { formatMoney, formatPct } from "@/lib/format/money";
 
 export default function DashboardPage() {
@@ -14,34 +15,36 @@ export default function DashboardPage() {
   const { data: series = [] } = useNetWorthSeries(scope);
   const { data: perf } = usePortfolioPerformance(scope);
   const { data: alloc } = usePortfolioAllocation(scope);
+  const { t } = useLanguage();
+  const dx = t("dashboard");
 
   return (
     <AppShell>
       <div className="p-6 max-w-7xl mx-auto space-y-6">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Tableau de bord</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Vue d'ensemble du patrimoine</p>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-foreground">{dx.title}</h1>
+          <p className="text-sm text-slate-500 dark:text-muted-foreground mt-0.5">{dx.subtitle}</p>
         </div>
 
         {/* KPI row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
-            title="Patrimoine net"
+            title={dx.netWorth}
             value={nw ? formatMoney(nw.current) : "—"}
-            subtitle={nw ? `Actifs: ${formatMoney(nw.assets)}` : undefined}
+            subtitle={nw ? `${dx.assets}: ${formatMoney(nw.assets)}` : undefined}
             className="col-span-2 lg:col-span-1"
           />
           <KpiCard
-            title="Actifs totaux"
+            title={dx.totalAssets}
             value={nw ? formatMoney(nw.assets) : "—"}
           />
           <KpiCard
-            title="Dettes totales"
+            title={dx.totalLiabilities}
             value={nw ? formatMoney(nw.liabilities) : "—"}
             trend={-1}
           />
           <KpiCard
-            title="Performance (XIRR)"
+            title={dx.performance}
             value={perf?.xirr != null ? formatPct(perf.xirr * 100) : "—"}
             subtitle={perf?.twr != null ? `TWR: ${formatPct(perf.twr * 100)}` : undefined}
             trend={perf?.xirr ?? 0}
@@ -56,24 +59,24 @@ export default function DashboardPage() {
 
         {/* Per-person breakdown */}
         {nw?.by_person && Object.keys(nw.by_person).length > 0 && (
-          <div className="bg-white rounded-xl border border-surface-border p-5">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">Par personne</h3>
+          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground mb-4">{dx.byPerson}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.entries(nw.by_person).map(([name, breakdown]: [string, any]) => (
-                <div key={name} className="p-3 bg-slate-50 rounded-lg">
-                  <p className="text-sm font-medium text-slate-700">{name}</p>
+                <div key={name} className="p-3 bg-slate-50 dark:bg-secondary rounded-lg">
+                  <p className="text-sm font-medium text-slate-700 dark:text-foreground">{name}</p>
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Actifs</span>
-                      <span className="money text-slate-700">{formatMoney(breakdown.assets)}</span>
+                      <span className="text-slate-500 dark:text-muted-foreground">{dx.assets}</span>
+                      <span className="money text-slate-700 dark:text-foreground">{formatMoney(breakdown.assets)}</span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Dettes</span>
+                      <span className="text-slate-500 dark:text-muted-foreground">{dx.liabilities}</span>
                       <span className="money text-danger">{formatMoney(breakdown.liabilities)}</span>
                     </div>
-                    <div className="flex justify-between text-xs font-semibold border-t pt-1 mt-1">
-                      <span className="text-slate-700">Net</span>
-                      <span className="money text-slate-900">{formatMoney(breakdown.net_worth)}</span>
+                    <div className="flex justify-between text-xs font-semibold border-t dark:border-border pt-1 mt-1">
+                      <span className="text-slate-700 dark:text-foreground">{dx.net}</span>
+                      <span className="money text-slate-900 dark:text-foreground">{formatMoney(breakdown.net_worth)}</span>
                     </div>
                   </div>
                 </div>

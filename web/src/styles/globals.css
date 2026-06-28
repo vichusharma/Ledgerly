@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    /* Light mode */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -24,6 +25,29 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+  }
+
+  /* Dark mode — matches wireframes.html design */
+  .dark {
+    --background: 223 25% 6%;      /* #0b0d12 */
+    --foreground: 220 22% 92%;     /* #e6e9ef */
+    --card: 223 22% 9%;            /* #12151c */
+    --card-foreground: 220 22% 92%;
+    --popover: 223 22% 9%;
+    --popover-foreground: 220 22% 92%;
+    --primary: 239 84% 67%;        /* #6366f1 indigo accent */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 221 22% 12%;      /* #171b24 */
+    --secondary-foreground: 220 22% 92%;
+    --muted: 221 22% 12%;
+    --muted-foreground: 220 14% 60%; /* #8b93a7 */
+    --accent: 221 22% 12%;
+    --accent-foreground: 220 22% 92%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 221 22% 17%;         /* #232936 */
+    --input: 221 22% 17%;
+    --ring: 239 84% 67%;
   }
 }
 
