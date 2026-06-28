@@ -12,6 +12,29 @@ const WRAPPER_TYPES = [
   "CTO", "LIVRET_A", "LDDS", "LEP", "ESOP", "OTHER",
 ];
 
+const FR_BANKS = [
+  "BNP Paribas",
+  "Crédit Agricole",
+  "Société Générale",
+  "Caisse d'Épargne",
+  "Banque Populaire",
+  "Crédit Mutuel",
+  "LCL",
+  "La Banque Postale",
+  "CIC",
+  "HSBC France",
+  "Boursorama Banque",
+  "Hello bank!",
+  "Fortuneo",
+  "Monabanq",
+  "N26",
+  "Revolut",
+  "Qonto",
+  "Shine",
+  "Sumeria",
+  "Arkéa",
+];
+
 export default function AccountsPage() {
   const { data: accounts = [] } = useAccounts("household", false);
   const { data: persons = [] } = usePersons();
@@ -109,7 +132,12 @@ export default function AccountsPage() {
                   onChange={e => setForm(f => ({ ...f, institution: e.target.value }))}
                   className={inputClass}
                   placeholder={ax.institutionPlaceholder}
+                  list="fr-banks"
+                  autoComplete="off"
                 />
+                <datalist id="fr-banks">
+                  {FR_BANKS.map(bank => <option key={bank} value={bank} />)}
+                </datalist>
               </div>
               <div>
                 <label className="text-xs text-slate-500 dark:text-muted-foreground">{ax.owner}</label>
