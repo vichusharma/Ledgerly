@@ -204,7 +204,13 @@ export default function ScenariosPage() {
                         <p className="money font-semibold text-slate-700 dark:text-foreground">{formatMoney(activeResult.interest_saved_if_prepay)}</p>
                       </div>
                       <div className="col-span-2 border-t dark:border-border pt-3">
-                        <p className="text-sm text-slate-600 dark:text-muted-foreground italic">{activeResult.interpretation}</p>
+                        <p className="text-sm text-slate-600 dark:text-muted-foreground italic">
+                          {activeResult.breakeven_month
+                            ? `✓ ${sx.breakevenText} ${activeResult.breakeven_month}.`
+                            : parseFloat(activeResult.delta_end) >= 0
+                              ? sx.investWins
+                              : sx.prepayWins}
+                        </p>
                       </div>
                     </div>
                   </>

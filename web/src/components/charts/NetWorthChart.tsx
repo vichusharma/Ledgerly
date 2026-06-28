@@ -2,6 +2,7 @@
 
 import ReactECharts from "echarts-for-react";
 import { formatMoney } from "@/lib/format/money";
+import { useLanguage } from "@/lib/context/LanguageContext";
 
 interface DataPoint {
   date: string;
@@ -11,6 +12,9 @@ interface DataPoint {
 }
 
 export function NetWorthChart({ data }: { data: DataPoint[] }) {
+  const { t } = useLanguage();
+  const dx = t("dashboard");
+
   const option = {
     tooltip: {
       trigger: "axis",
@@ -20,7 +24,7 @@ export function NetWorthChart({ data }: { data: DataPoint[] }) {
           .join("<br/>"),
     },
     legend: {
-      data: ["Patrimoine net", "Actifs", "Dettes"],
+      data: [dx.netWorth, dx.assets, dx.liabilities],
       bottom: 0,
     },
     grid: { left: 60, right: 20, top: 20, bottom: 40 },
@@ -38,7 +42,7 @@ export function NetWorthChart({ data }: { data: DataPoint[] }) {
     },
     series: [
       {
-        name: "Patrimoine net",
+        name: dx.netWorth,
         type: "line",
         data: data.map((d) => d.net_worth),
         smooth: true,
@@ -47,7 +51,7 @@ export function NetWorthChart({ data }: { data: DataPoint[] }) {
         symbol: "none",
       },
       {
-        name: "Actifs",
+        name: dx.assets,
         type: "line",
         data: data.map((d) => d.assets),
         smooth: true,
@@ -55,7 +59,7 @@ export function NetWorthChart({ data }: { data: DataPoint[] }) {
         symbol: "none",
       },
       {
-        name: "Dettes",
+        name: dx.liabilities,
         type: "line",
         data: data.map((d) => d.liabilities),
         smooth: true,
@@ -66,8 +70,8 @@ export function NetWorthChart({ data }: { data: DataPoint[] }) {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-surface-border p-5">
-      <h3 className="text-sm font-semibold text-slate-700 mb-4">Évolution du patrimoine</h3>
+    <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
+      <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground mb-4">{dx.evolution}</h3>
       <ReactECharts option={option} style={{ height: 280 }} />
     </div>
   );
