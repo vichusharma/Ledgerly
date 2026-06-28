@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledgerly — Wireframes</title>
+<style>
+:root{
+  --bg:#0b0d12; --surface:#12151c; --surface2:#171b24; --line:#232936;
+  --text:#e6e9ef; --muted:#8b93a7; --faint:#5b6377;
+  --accent:#6366f1; --accent2:#10b981; --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+  --radius:14px; --shadow:0 1px 0 rgba(255,255,255,.03), 0 8px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro",Segoe UI,system-ui,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+.app{display:grid;grid-template-columns:236px 1fr;height:100vh;overflow:hidden}
+
+/* Sidebar */
+.sidebar{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 10px;gap:2px}
+.brand{display:flex;align-items:center;gap:9px;padding:8px 10px 14px}
+.logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:800;color:#fff;font-size:14px}
+.brand b{font-size:15px;letter-spacing:-.2px}
+.nav{display:flex;flex-direction:column;gap:1px;margin-top:4px}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:var(--muted);padding:9px 11px;border-radius:9px;cursor:pointer;font-size:13.5px;font-family:inherit}
+.nav button:hover{background:var(--surface2);color:var(--text)}
+.nav button.active{background:var(--surface2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.nav .ico{width:16px;text-align:center;opacity:.85}
+.nav .sect{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:14px 11px 6px}
+.side-foot{margin-top:auto;padding:10px;border-top:1px solid var(--line);display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12.5px}
+.avatar{width:26px;height:26px;border-radius:50%;background:#2b3242;display:grid;place-items:center;font-size:11px;color:var(--text)}
+
+/* Main */
+.main{display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:56px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 22px;background:rgba(11,13,18,.7);backdrop-filter:blur(8px)}
+.crumb{font-weight:600;font-size:15px;letter-spacing:-.2px}
+.crumb small{color:var(--muted);font-weight:400}
+.spacer{flex:1}
+.scope{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px}
+.scope button{border:0;background:none;color:var(--muted);padding:5px 11px;border-radius:7px;cursor:pointer;font-size:12.5px;font-family:inherit}
+.scope button.active{background:var(--accent);color:#fff}
+.range{display:flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px}
+.range button{border:0;background:none;color:var(--muted);padding:5px 9px;border-radius:7px;cursor:pointer;font-size:12px;font-family:inherit}
+.range button.active{background:var(--surface2);color:var(--text)}
+.cmdk{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 11px;color:var(--muted);cursor:pointer;font-size:12.5px}
+.cmdk kbd{background:var(--surface2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11px;color:var(--muted)}
+
+.content{padding:22px;overflow-y:auto}
+.screen{display:none;animation:fade .25s ease}
+.screen.show{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* Building blocks */
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 2px;font-size:12.5px;color:var(--muted);font-weight:500}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.5px;margin-top:6px}
+.kpi .d{font-size:12px;margin-top:4px}
+.up{color:var(--green)} .down{color:var(--red)} .warn{color:var(--amber)}
+.title{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}
+.title h2{margin:0;font-size:15px;letter-spacing:-.2px}
+.title .sub{color:var(--muted);font-size:12px}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:9px;padding:8px 13px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500}
+.btn.ghost{background:var(--surface2);color:var(--text);border:1px solid var(--line)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.row{display:grid;gap:16px}
+.r-2{grid-template-columns:1.6fr 1fr}
+.r-2b{grid-template-columns:1fr 1fr}
+.r-3{grid-template-columns:repeat(3,1fr)}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface2);border:1px solid var(--line);color:var(--muted)}
+.pill.g{color:var(--green);border-color:rgba(34,197,94,.3)}
+.pill.a{color:var(--amber);border-color:rgba(245,158,11,.3)}
+.pill.i{color:#a5b4fc;border-color:rgba(99,102,241,.35)}
+
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+.tag{font-size:11px;padding:2px 7px;border-radius:6px;background:var(--surface2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+
+/* charts */
+.bars{display:flex;align-items:flex-end;gap:7px;height:150px;padding-top:8px}
+.bars .b{flex:1;background:linear-gradient(180deg,var(--accent),rgba(99,102,241,.25));border-radius:5px 5px 0 0;min-height:4px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:10px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.donut{width:150px;height:150px}
+.driftbar{height:8px;border-radius:6px;background:var(--surface2);position:relative;overflow:hidden;margin-top:6px}
+.driftbar > span{position:absolute;top:0;bottom:0;left:0;background:var(--accent);border-radius:6px}
+.alloc-row{display:grid;grid-template-columns:90px 1fr 64px 54px;gap:10px;align-items:center;padding:7px 0;font-size:12.5px}
+.progress{height:8px;border-radius:6px;background:var(--surface2);overflow:hidden}
+.progress>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+
+/* tabs */
+.tabs{display:flex;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;margin-bottom:14px;width:fit-content;flex-wrap:wrap}
+.tabs button{border:0;background:none;color:var(--muted);padding:6px 12px;border-radius:7px;cursor:pointer;font-size:12.5px;font-family:inherit}
+.tabs button.active{background:var(--surface2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+
+/* form */
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+.field input,.field select{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:9px 11px;font-size:13px;font-family:inherit}
+.seg{display:flex;gap:8px}
+.seg .opt{flex:1;text-align:center;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:9px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+.seg .opt.active{border-color:var(--accent);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}
+.banner{background:linear-gradient(135deg,rgba(99,102,241,.16),rgba(16,185,129,.12));border:1px solid rgba(99,102,241,.3);border-radius:12px;padding:13px 15px;font-size:13.5px}
+.dropzone{border:1.5px dashed var(--line);border-radius:12px;padding:30px;text-align:center;color:var(--muted)}
+.muted{color:var(--muted)}
+.note{font-size:11.5px;color:var(--faint);margin-top:4px}
+.hr{height:1px;background:var(--line);margin:14px 0}
+
+/* command palette overlay */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:50}
+.overlay.show{display:flex}
+.palette{width:540px;max-width:92vw;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden}
+.palette input{width:100%;border:0;background:none;color:var(--text);padding:16px;font-size:15px;font-family:inherit;border-bottom:1px solid var(--line)}
+.palette input:focus{outline:none}
+.palette .opt{padding:11px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;color:var(--muted)}
+.palette .opt:hover{background:var(--surface2);color:var(--text)}
+.wf-note{position:fixed;bottom:14px;right:16px;font-size:11px;color:var(--faint);background:var(--surface);border:1px solid var(--line);padding:5px 10px;border-radius:8px}
+@media(max-width:860px){.app{grid-template-columns:60px 1fr}.brand b,.nav span.lbl,.nav .sect,.side-foot span{display:none}.kpis{grid-template-columns:repeat(2,1fr)}.r-2,.r-2b,.r-3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">L</div><b>Ledgerly</b></div>
+    <nav class="nav" id="nav">
+      <button data-s="dashboard" class="active"><span class="ico">◧</span><span class="lbl">Dashboard</span></button>
+      <button data-s="portfolio"><span class="ico">▣</span><span class="lbl">Portfolio</span></button>
+      <button data-s="debt"><span class="ico">▤</span><span class="lbl">Debt</span></button>
+      <button data-s="expenses"><span class="ico">≡</span><span class="lbl">Expenses</span></button>
+      <div class="sect">Decisions</div>
+      <button data-s="scenarios"><span class="ico">⑂</span><span class="lbl">Scenarios</span></button>
+      <button data-s="goals"><span class="ico">◎</span><span class="lbl">Goals</span></button>
+      <div class="sect">Manage</div>
+      <button data-s="accounts"><span class="ico">◫</span><span class="lbl">Accounts</span></button>
+      <button data-s="import"><span class="ico">⤓</span><span class="lbl">Import</span></button>
+      <button data-s="settings"><span class="ico">⚙</span><span class="lbl">Settings</span></button>
+    </nav>
+    <div class="side-foot"><div class="avatar">C&J</div><span>Camille &amp; Julien</span></div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb" id="crumb">Dashboard <small id="crumbsub">· How am I doing?</small></div>
+      <div class="spacer"></div>
+      <div class="scope" id="scope">
+        <button>Antoine</button><button>Camille</button><button>Joint</button><button class="active">Household</button>
+      </div>
+      <div class="range" id="range">
+        <button>1M</button><button>6M</button><button class="active">1Y</button><button>All</button>
+      </div>
+      <div class="cmdk" onclick="openPalette()"><span>Search…</span><kbd>⌘K</kbd></div>
+    </header>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <section class="screen show" id="dashboard">
+        <div class="grid kpis" style="margin-bottom:16px">
+          <div class="card kpi"><h3>Net Worth</h3><div class="v num">€ 642 180</div><div class="d up">▲ €8 420 (1,3%) this month</div></div>
+          <div class="card kpi"><h3>Total Assets</h3><div class="v num">€ 884 050</div><div class="d up">▲ €6 110</div></div>
+          <div class="card kpi"><h3>Total Liabilities</h3><div class="v num">€ 241 870</div><div class="d down">▼ €2 310 capital repaid</div></div>
+          <div class="card kpi"><h3>Savings Rate</h3><div class="v num">31 %</div><div class="d muted">trailing 3 months</div></div>
+        </div>
+        <div class="row r-2" style="margin-bottom:16px">
+          <div class="card">
+            <div class="title"><h2>Net Worth over time</h2><span class="sub">Household · 1Y</span></div>
+            <svg viewBox="0 0 600 220" width="100%" height="200" preserveAspectRatio="none">
+              <defs><linearGradient id="g1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#6366f1" stop-opacity=".45"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></linearGradient></defs>
+              <path d="M0,170 L55,160 L110,165 L165,140 L220,150 L275,120 L330,118 L385,95 L440,100 L495,70 L550,58 L600,40 L600,220 L0,220 Z" fill="url(#g1)"/>
+              <path d="M0,170 L55,160 L110,165 L165,140 L220,150 L275,120 L330,118 L385,95 L440,100 L495,70 L550,58 L600,40" fill="none" stroke="#6366f1" stroke-width="2.5"/>
+            </svg>
+            <div class="legend"><span><i class="dot" style="background:var(--accent)"></i>Net worth</span><span class="muted">Jul 2025 → Jun 2026</span></div>
+          </div>
+          <div class="card">
+            <div class="title"><h2>Asset allocation</h2><span class="sub">click → Portfolio</span></div>
+            <div style="display:flex;gap:16px;align-items:center">
+              <svg class="donut" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#232936" stroke-width="4"/>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#6366f1" stroke-width="4" stroke-dasharray="46 54" stroke-dashoffset="0"/>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#10b981" stroke-width="4" stroke-dasharray="22 78" stroke-dashoffset="-46"/>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f59e0b" stroke-width="4" stroke-dasharray="18 82" stroke-dashoffset="-68"/>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#64748b" stroke-width="4" stroke-dasharray="14 86" stroke-dashoffset="-86"/>
+              </svg>
+              <div class="legend" style="flex-direction:column;gap:8px;margin:0">
+                <span><i class="dot" style="background:#6366f1"></i>Equity / ETF · 46%</span>
+                <span><i class="dot" style="background:#10b981"></i>Real estate · 22%</span>
+                <span><i class="dot" style="background:#f59e0b"></i>Cash / Livret · 18%</span>
+                <span><i class="dot" style="background:#64748b"></i>Bonds / AV € · 14%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row r-3">
+          <div class="card"><div class="title"><h2>Top expenses</h2><span class="sub">June</span></div>
+            <div class="alloc-row"><span>Housing</span><div class="progress"><span style="width:80%"></span></div><span class="num r">€1 410</span><span></span></div>
+            <div class="alloc-row"><span>Utilities</span><div class="progress"><span style="width:42%"></span></div><span class="num r">€ 320</span><span></span></div>
+            <div class="alloc-row"><span>Groceries</span><div class="progress"><span style="width:55%"></span></div><span class="num r">€ 540</span><span></span></div>
+            <div class="alloc-row"><span>Travel</span><div class="progress"><span style="width:30%"></span></div><span class="num r">€ 260</span><span></span></div>
+          </div>
+          <div class="card"><div class="title"><h2>Goals</h2><span class="sub">on track</span></div>
+            <div style="font-size:12.5px;margin-bottom:4px">Financial Independence <span class="pill g" style="float:right">2039</span></div>
+            <div class="progress" style="margin-bottom:12px"><span style="width:38%"></span></div>
+            <div style="font-size:12.5px;margin-bottom:4px">Mortgage payoff <span class="pill i" style="float:right">2034</span></div>
+            <div class="progress"><span style="width:24%"></span></div>
+          </div>
+          <div class="card"><div class="title"><h2>Upcoming payments</h2></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span>Mortgage · 5 Jul</span><span class="num">€1 312</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span>Car loan · 8 Jul</span><span class="num">€ 289</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span>Internet · 10 Jul</span><span class="num">€ 39</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PORTFOLIO -->
+      <section class="screen" id="portfolio">
+        <div class="grid kpis" style="margin-bottom:16px">
+          <div class="card kpi"><h3>Portfolio value</h3><div class="v num">€ 428 900</div><div class="d up">▲ 1,9% MTD</div></div>
+          <div class="card kpi"><h3>TWR <span class="pill i">time-weighted</span></h3><div class="v num up">+11,4 %</div><div class="d muted">annualised, 1Y</div></div>
+          <div class="card kpi"><h3>XIRR <span class="pill i">money-weighted</span></h3><div class="v num up">+9,8 %</div><div class="d muted">since inception</div></div>
+          <div class="card kpi"><h3>Contributions vs Growth</h3><div class="v num">€312k / €117k</div><div class="d up">27% is market growth</div></div>
+        </div>
+        <div class="tabs" id="ptabs">
+          <button class="active">All</button><button>PEA</button><button>PEA-PME</button><button>Assurance Vie</button><button>PER</button><button>PEE</button><button>CTO</button><button>Livret A</button><button>ESOP</button>
+        </div>
+        <div class="row r-2" style="margin-bottom:16px">
+          <div class="card">
+            <div class="title"><h2>Value vs contributions</h2><span class="sub">PEA · 5y clock: 3y left</span></div>
+            <svg viewBox="0 0 600 200" width="100%" height="180" preserveAspectRatio="none">
+              <path d="M0,160 L100,150 L200,140 L300,128 L400,120 L500,110 L600,104" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="5 4"/>
+              <path d="M0,165 L100,150 L200,138 L300,110 L400,96 L500,70 L600,52" fill="none" stroke="#10b981" stroke-width="2.5"/>
+            </svg>
+            <div class="legend"><span><i class="dot" style="background:#10b981"></i>Market value</span><span><i class="dot" style="background:#64748b"></i>Net contributions</span></div>
+          </div>
+          <div class="card">
+            <div class="title"><h2>Allocation &amp; drift</h2><span class="sub">actual vs target</span></div>
+            <div class="alloc-row"><span>Equity</span><div class="driftbar"><span style="width:46%"></span></div><span class="num">46%</span><span class="warn">+6</span></div>
+            <div class="alloc-row"><span>Bonds</span><div class="driftbar"><span style="width:14%;background:#10b981"></span></div><span class="num">14%</span><span class="down">-6</span></div>
+            <div class="alloc-row"><span>Real estate</span><div class="driftbar"><span style="width:22%;background:#f59e0b"></span></div><span class="num">22%</span><span class="muted">0</span></div>
+            <div class="alloc-row"><span>Cash</span><div class="driftbar"><span style="width:18%;background:#64748b"></span></div><span class="num">18%</span><span class="up">+2</span></div>
+            <div class="hr"></div>
+            <div class="banner">Equity is <b>+6%</b> above target. <a href="#" onclick="go('scenarios');return false" style="color:#a5b4fc">Rebalance?</a></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="title"><h2>Holdings</h2><button class="btn sm ghost">+ Add lot</button></div>
+          <table>
+            <thead><tr><th>Instrument</th><th>Class</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Value</th><th class="r">Weight</th><th class="r">P/L</th></tr></thead>
+            <tbody>
+              <tr><td>iShares Core MSCI World <span class="muted">IE00B4L5Y983</span></td><td>ETF</td><td class="r num">312</td><td class="r num">€96,40</td><td class="r num">€30 077</td><td class="r num">7,0%</td><td class="r up num">+18,2%</td></tr>
+              <tr><td>Amundi PEA S&amp;P 500 <span class="muted">FR0013412285</span></td><td>ETF</td><td class="r num">540</td><td class="r num">€41,10</td><td class="r num">€22 194</td><td class="r num">5,2%</td><td class="r up num">+24,6%</td></tr>
+              <tr><td>Air Liquide <span class="muted">FR0000120073</span></td><td>Equity</td><td class="r num">80</td><td class="r num">€172,30</td><td class="r num">€13 784</td><td class="r num">3,2%</td><td class="r up num">+9,1%</td></tr>
+              <tr><td>Fonds € (Assurance Vie)</td><td>Bond</td><td class="r num">—</td><td class="r num">—</td><td class="r num">€96 400</td><td class="r num">22,5%</td><td class="r up num">+2,3%</td></tr>
+              <tr><td>Livret A</td><td>Cash</td><td class="r num">—</td><td class="r num">—</td><td class="r num">€22 950</td><td class="r num">5,4%</td><td class="r muted num">3,0%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- DEBT -->
+      <section class="screen" id="debt">
+        <div class="grid kpis" style="margin-bottom:16px">
+          <div class="card kpi"><h3>Remaining capital</h3><div class="v num">€ 228 400</div><div class="d muted">mortgage + car</div></div>
+          <div class="card kpi"><h3>Weighted rate</h3><div class="v num">1,92 %</div><div class="d muted">mortgage 1,75% · car 3,4%</div></div>
+          <div class="card kpi"><h3>Interest paid YTD</h3><div class="v num">€ 2 140</div><div class="d muted">2026</div></div>
+          <div class="card kpi"><h3>Payoff date</h3><div class="v num">Mar 2034</div><div class="d muted">at current schedule</div></div>
+        </div>
+        <div class="tabs"><button class="active">Mortgage · primary residence</button><button>Car loan</button></div>
+        <div class="row r-2" style="margin-bottom:16px">
+          <div class="card">
+            <div class="title"><h2>Amortization</h2><span class="sub">principal vs interest</span></div>
+            <div class="bars">
+              <div class="b" style="height:96%"></div><div class="b" style="height:90%"></div><div class="b" style="height:84%"></div><div class="b" style="height:77%"></div><div class="b" style="height:70%"></div><div class="b" style="height:62%"></div><div class="b" style="height:54%"></div><div class="b" style="height:45%"></div><div class="b" style="height:36%"></div><div class="b" style="height:26%"></div><div class="b" style="height:15%"></div><div class="b" style="height:6%"></div>
+            </div>
+            <div class="legend"><span><i class="dot" style="background:var(--accent)"></i>Remaining balance by year</span></div>
+          </div>
+          <div class="card">
+            <div class="title"><h2>Loan summary</h2></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Original principal</span><span class="num">€ 280 000</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Rate (fixed)</span><span class="num">1,75 %</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Term</span><span class="num">240 mo (20y)</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Monthly payment</span><span class="num">€ 1 312</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Remaining capital</span><span class="num">€ 210 600</span></div>
+            <div class="hr"></div>
+            <button class="btn" onclick="go('scenarios')">Simulate prepayment →</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="title"><h2>Amortization schedule</h2><span class="sub">paginated · 240 rows</span></div>
+          <table>
+            <thead><tr><th>#</th><th>Due date</th><th class="r">Payment</th><th class="r">Interest</th><th class="r">Principal</th><th class="r">Balance</th></tr></thead>
+            <tbody>
+              <tr><td>61</td><td>05 Jul 2026</td><td class="r num">€1 312</td><td class="r num">€307</td><td class="r num">€1 005</td><td class="r num">€209 595</td></tr>
+              <tr><td>62</td><td>05 Aug 2026</td><td class="r num">€1 312</td><td class="r num">€305</td><td class="r num">€1 007</td><td class="r num">€208 588</td></tr>
+              <tr><td>63</td><td>05 Sep 2026</td><td class="r num">€1 312</td><td class="r num">€304</td><td class="r num">€1 008</td><td class="r num">€207 580</td></tr>
+              <tr><td>64</td><td>05 Oct 2026</td><td class="r num">€1 312</td><td class="r num">€303</td><td class="r num">€1 009</td><td class="r num">€206 571</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- EXPENSES -->
+      <section class="screen" id="expenses">
+        <div class="title"><h2>Expenses — June 2026</h2><div style="display:flex;gap:8px"><button class="btn ghost sm">◀ May</button><button class="btn ghost sm">Jul ▶</button><button class="btn sm" onclick="go('import')">Import CSV</button></div></div>
+        <div class="row r-2" style="margin-bottom:16px">
+          <div class="card">
+            <div class="title"><h2>By category</h2><span class="sub">€3 280 spent</span></div>
+            <div class="alloc-row"><span>Housing</span><div class="progress"><span style="width:80%"></span></div><span class="num r">€1 410</span><span></span></div>
+            <div class="alloc-row"><span>Groceries</span><div class="progress"><span style="width:55%"></span></div><span class="num r">€ 540</span><span></span></div>
+            <div class="alloc-row"><span>Utilities</span><div class="progress"><span style="width:42%"></span></div><span class="num r">€ 320</span><span></span></div>
+            <div class="alloc-row"><span>Travel</span><div class="progress"><span style="width:30%"></span></div><span class="num r">€ 260</span><span></span></div>
+            <div class="alloc-row"><span>Transport</span><div class="progress"><span style="width:24%"></span></div><span class="num r">€ 190</span><span></span></div>
+          </div>
+          <div class="card">
+            <div class="title"><h2>Recurring this month</h2></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto auto;gap:8px"><span>Electricity (EDF)</span><span class="pill g">matched</span><span class="num">€118</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto auto;gap:8px"><span>Internet (Free)</span><span class="pill g">matched</span><span class="num">€39</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto auto;gap:8px"><span>Mobile (Sosh) ×2</span><span class="pill g">matched</span><span class="num">€30</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto auto;gap:8px"><span>Gas (Engie)</span><span class="pill a">missing</span><span class="num muted">~€95</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="title"><h2>Transactions</h2><span class="sub">inline-editable categories · click a category to recategorize</span></div>
+          <table>
+            <thead><tr><th>Date</th><th>Description</th><th>Account</th><th>Category</th><th class="r">Amount</th></tr></thead>
+            <tbody>
+              <tr><td>27 Jun</td><td>EDF FACTURE</td><td>BoursoBank Joint</td><td><span class="tag">Utilities › Electricity</span></td><td class="r down num">−€118,40</td></tr>
+              <tr><td>26 Jun</td><td>CARREFOUR MARKET</td><td>Camille CIC</td><td><span class="tag">Household › Groceries</span></td><td class="r down num">−€86,12</td></tr>
+              <tr><td>25 Jun</td><td>SNCF CONNECT</td><td>BoursoBank Joint</td><td><span class="tag">Travel › Transport</span></td><td class="r down num">−€124,00</td></tr>
+              <tr><td>24 Jun</td><td>VIR SALAIRE</td><td>Antoine Bourso</td><td><span class="tag">Income › Salary</span></td><td class="r up num">+€4 120,00</td></tr>
+              <tr><td>23 Jun</td><td>FREE TELECOM</td><td>BoursoBank Joint</td><td><span class="tag">Utilities › Internet</span></td><td class="r down num">−€38,99</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SCENARIOS -->
+      <section class="screen" id="scenarios">
+        <div class="title"><h2>Scenario — Invest vs Prepay mortgage</h2><div style="display:flex;gap:8px"><button class="btn ghost sm">Compare saved</button><button class="btn sm">Save scenario</button></div></div>
+        <div class="row r-2" style="margin-bottom:16px">
+          <div class="card">
+            <div class="title"><h2>Inputs</h2></div>
+            <div class="field"><label>Lump sum to allocate</label><input value="€ 20 000"></div>
+            <div class="field"><label>Monthly addition</label><input value="€ 0"></div>
+            <div class="field"><label>Horizon</label><input value="240 months (20y)"></div>
+            <div class="field"><label>Loan</label><select><option>Mortgage · 1,75% · €210 600 left</option><option>Car loan · 3,4%</option></select></div>
+            <div class="field"><label>Expected annual return</label>
+              <div class="seg"><div class="opt">Low 2%</div><div class="opt active">Base 5%</div><div class="opt">High 8%</div></div>
+              <div class="note">All three are computed and shown together.</div>
+            </div>
+            <button class="btn" style="width:100%">Run simulation</button>
+          </div>
+          <div class="card">
+            <div class="title"><h2>Result</h2><span class="sub">net worth, invest vs prepay</span></div>
+            <svg viewBox="0 0 600 210" width="100%" height="190" preserveAspectRatio="none">
+              <line x1="290" y1="0" x2="290" y2="210" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <path d="M0,170 L150,150 L290,128 L430,96 L600,40" fill="none" stroke="#10b981" stroke-width="2.5"/>
+              <path d="M0,168 L150,152 L290,138 L430,120 L600,92" fill="none" stroke="#6366f1" stroke-width="2.5"/>
+              <text x="296" y="20" fill="#f59e0b" font-size="11">breakeven · m58</text>
+            </svg>
+            <div class="legend"><span><i class="dot" style="background:#10b981"></i>Invest €20k</span><span><i class="dot" style="background:#6366f1"></i>Prepay mortgage</span></div>
+            <div class="hr"></div>
+            <div class="banner">At <b>base 5%</b>, investing overtakes prepaying after <b>month 58</b> and ends <b>+€14 190</b> ahead. At <b>low 2%</b>, prepaying wins (saves €21 840 interest). At <b>high 8%</b>, investing wins by <b>+€41 281</b>.</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="title"><h2>Scenario comparison</h2></div>
+          <table>
+            <thead><tr><th>Return</th><th class="r">Invest — net worth @20y</th><th class="r">Prepay — net worth @20y</th><th class="r">Delta</th><th class="r">Breakeven</th><th>Verdict</th></tr></thead>
+            <tbody>
+              <tr><td>Low · 2%</td><td class="r num">€362 100</td><td class="r num">€365 300</td><td class="r down num">−€3 200</td><td class="r">—</td><td><span class="pill i">Prepay</span></td></tr>
+              <tr><td>Base · 5%</td><td class="r num">€412 301</td><td class="r num">€398 110</td><td class="r up num">+€14 190</td><td class="r num">m58</td><td><span class="pill g">Invest</span></td></tr>
+              <tr><td>High · 8%</td><td class="r num">€487 540</td><td class="r num">€446 259</td><td class="r up num">+€41 281</td><td class="r num">m31</td><td><span class="pill g">Invest</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- GOALS -->
+      <section class="screen" id="goals">
+        <div class="title"><h2>Goals</h2><button class="btn sm">+ New goal</button></div>
+        <div class="row r-2b" style="margin-bottom:16px">
+          <div class="card">
+            <div class="title"><h2>Financial Independence</h2><span class="pill g">on track · 2039</span></div>
+            <div style="font-size:28px;font-weight:700" class="num">38%</div>
+            <div class="progress" style="margin:10px 0"><span style="width:38%"></span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">FI number (25× spend)</span><span class="num">€1 080 000</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Current invested net worth</span><span class="num">€410 600</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Projected FI date (base 5%)</span><span class="num">2039</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Required return to hit 2037</span><span class="num warn">7,1%</span></div>
+          </div>
+          <div class="card">
+            <div class="title"><h2>Mortgage payoff</h2><span class="pill i">2034</span></div>
+            <div style="font-size:28px;font-weight:700" class="num">24%</div>
+            <div class="progress" style="margin:10px 0"><span style="width:24%"></span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Original</span><span class="num">€280 000</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Repaid</span><span class="num">€69 400</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span class="muted">Projected payoff</span><span class="num">Mar 2034</span></div>
+            <div class="hr"></div>
+            <button class="btn ghost sm" onclick="go('scenarios')">Test accelerated payoff →</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="title"><h2>Vacation budget — Japan 2026</h2><span class="sub">plan vs actual</span></div>
+          <div class="alloc-row"><span>Flights</span><div class="progress"><span style="width:100%"></span></div><span class="num r">€2 400</span><span class="pill g">booked</span></div>
+          <div class="alloc-row"><span>Hotels</span><div class="progress"><span style="width:60%"></span></div><span class="num r">€1 800</span><span class="muted">€1 080 spent</span></div>
+          <div class="alloc-row"><span>Activities</span><div class="progress"><span style="width:20%"></span></div><span class="num r">€900</span><span class="muted">€180 spent</span></div>
+          <div class="hr"></div>
+          <div class="alloc-row" style="grid-template-columns:1fr auto"><b>Total planned</b><b class="num">€5 100</b></div>
+        </div>
+      </section>
+
+      <!-- ACCOUNTS -->
+      <section class="screen" id="accounts">
+        <div class="title"><h2>Accounts &amp; Household</h2><div style="display:flex;gap:8px"><button class="btn ghost sm">+ Person</button><button class="btn sm">+ Account</button></div></div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="title"><h2>Antoine</h2><span class="sub">individual</span></div>
+          <table>
+            <thead><tr><th>Account</th><th>Institution</th><th>Type</th><th>Ownership</th><th class="r">Balance</th></tr></thead>
+            <tbody>
+              <tr><td>Bourso PEA</td><td>BoursoBank</td><td><span class="pill i">PEA</span></td><td>100% Antoine</td><td class="r num">€142 300</td></tr>
+              <tr><td>PEE Capgemini</td><td>Amundi ESR</td><td><span class="pill i">PEE</span></td><td>100% Antoine</td><td class="r num">€38 900</td></tr>
+              <tr><td>Current account</td><td>BoursoBank</td><td><span class="pill">Bank</span></td><td>100% Antoine</td><td class="r num">€6 410</td></tr>
+              <tr><td>RSU grant (Capgemini)</td><td>—</td><td><span class="pill i">ESOP</span></td><td>100% Antoine</td><td class="r num">€44 000 <span class="muted">(€18k unvested)</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="title"><h2>Camille</h2><span class="sub">individual</span></div>
+          <table>
+            <thead><tr><th>Account</th><th>Institution</th><th>Type</th><th>Ownership</th><th class="r">Balance</th></tr></thead>
+            <tbody>
+              <tr><td>PEA</td><td>Fortuneo</td><td><span class="pill i">PEA</span></td><td>100% Camille</td><td class="r num">€88 700</td></tr>
+              <tr><td>Livret A</td><td>CIC</td><td><span class="pill i">Livret A</span></td><td>100% Camille</td><td class="r num">€22 950</td></tr>
+              <tr><td>PER</td><td>Linxea</td><td><span class="pill i">PER</span></td><td>100% Camille</td><td class="r num">€19 400</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="title"><h2>Joint</h2><span class="sub">shared · ownership split editable</span></div>
+          <table>
+            <thead><tr><th>Account</th><th>Institution</th><th>Type</th><th>Ownership</th><th class="r">Balance</th></tr></thead>
+            <tbody>
+              <tr><td>Assurance Vie</td><td>Linxea Spirit</td><td><span class="pill i">AV</span></td><td>50 / 50 <span class="tag">edit</span></td><td class="r num">€96 400</td></tr>
+              <tr><td>Joint current</td><td>BoursoBank</td><td><span class="pill">Bank</span></td><td>50 / 50</td><td class="r num">€8 950</td></tr>
+              <tr><td>Mortgage</td><td>Crédit Agricole</td><td><span class="pill">Liability</span></td><td>50 / 50</td><td class="r down num">−€210 600</td></tr>
+              <tr><td>Car loan</td><td>Younited</td><td><span class="pill">Liability</span></td><td>50 / 50</td><td class="r down num">−€17 800</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- IMPORT -->
+      <section class="screen" id="import">
+        <div class="title"><h2>Import data</h2><span class="sub">CSV / manual · no bank credentials, ever</span></div>
+        <div class="row r-2b" style="margin-bottom:16px">
+          <div class="card">
+            <div class="title"><h2>Transactions CSV</h2></div>
+            <div class="dropzone">⤓ Drop a bank CSV here or <span style="color:#a5b4fc">browse</span><div class="note">Column mapping is auto-detected and saved per institution.</div></div>
+            <div class="hr"></div>
+            <div class="title"><h2 style="font-size:13px">Column mapping — BoursoBank</h2></div>
+            <div class="alloc-row" style="grid-template-columns:1fr 1fr"><span class="muted">Date column</span><select class="num"><option>dateOp</option></select></div>
+            <div class="alloc-row" style="grid-template-columns:1fr 1fr"><span class="muted">Amount column</span><select><option>montant</option></select></div>
+            <div class="alloc-row" style="grid-template-columns:1fr 1fr"><span class="muted">Description column</span><select><option>libelle</option></select></div>
+            <button class="btn" style="width:100%;margin-top:8px">Preview &amp; dedupe</button>
+          </div>
+          <div class="card">
+            <div class="title"><h2>Price file (EOD)</h2></div>
+            <div class="dropzone">⤓ Drop a price CSV<div class="note">Format: isin, date, close</div></div>
+            <div class="hr"></div>
+            <div class="title"><h2 style="font-size:13px">Import history</h2></div>
+            <table>
+              <thead><tr><th>Batch</th><th>Rows</th><th>Dupes</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>bourso_jun.csv</td><td class="num">142</td><td class="num">7</td><td><span class="tag">rollback</span></td></tr>
+                <tr><td>fortuneo_jun.csv</td><td class="num">38</td><td class="num">0</td><td><span class="tag">rollback</span></td></tr>
+                <tr><td>prices_2026-06.csv</td><td class="num">410</td><td class="num">12</td><td><span class="tag">rollback</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="title"><h2>Preview — 5 of 142 rows</h2><span class="sub">7 duplicates skipped · 4 uncategorized</span></div>
+          <table>
+            <thead><tr><th>Date</th><th>Description</th><th>Category (rule)</th><th class="r">Amount</th></tr></thead>
+            <tbody>
+              <tr><td>27 Jun</td><td>EDF FACTURE</td><td><span class="pill g">/EDF/ → Electricity</span></td><td class="r num">−€118,40</td></tr>
+              <tr><td>26 Jun</td><td>CARREFOUR</td><td><span class="pill g">/CARREFOUR/ → Groceries</span></td><td class="r num">−€86,12</td></tr>
+              <tr><td>25 Jun</td><td>PAIEMENT CB XYZ</td><td><span class="pill a">uncategorized</span></td><td class="r num">−€42,00</td></tr>
+            </tbody>
+          </table>
+          <div style="display:flex;gap:8px;margin-top:12px"><button class="btn">Confirm import</button><button class="btn ghost">Cancel</button></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="screen" id="settings">
+        <div class="title"><h2>Settings</h2></div>
+        <div class="row r-2b" style="margin-bottom:16px">
+          <div class="card">
+            <div class="title"><h2>Target allocation</h2></div>
+            <div class="alloc-row"><span>Equity</span><div class="progress"><span style="width:40%"></span></div><span class="num">40%</span><span></span></div>
+            <div class="alloc-row"><span>Bonds</span><div class="progress"><span style="width:20%;background:#10b981"></span></div><span class="num">20%</span><span></span></div>
+            <div class="alloc-row"><span>Real estate</span><div class="progress"><span style="width:22%;background:#f59e0b"></span></div><span class="num">22%</span><span></span></div>
+            <div class="alloc-row"><span>Cash</span><div class="progress"><span style="width:18%;background:#64748b"></span></div><span class="num">18%</span><span></span></div>
+            <div class="hr"></div>
+            <div class="field"><label>Base currency</label><select><option>EUR (€)</option></select></div>
+            <div class="field"><label>Language</label><select><option>Français</option><option>English</option></select></div>
+          </div>
+          <div class="card">
+            <div class="title"><h2>Privacy &amp; security</h2></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span>Price provider (optional egress)</span><span class="pill a">OFF</span></div>
+            <div class="note">When off, prices are manual/CSV only. When on, only ISIN+date are sent — never balances.</div>
+            <div class="hr"></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span>Change password</span><span class="tag">edit</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span>Recovery codes</span><span class="tag">view</span></div>
+            <div class="alloc-row" style="grid-template-columns:1fr auto"><span>Encrypted backup</span><span class="tag">run now</span></div>
+            <div class="hr"></div>
+            <div class="title"><h2 style="font-size:13px">GDPR</h2></div>
+            <div style="display:flex;gap:8px"><button class="btn ghost sm">Export all data (.zip)</button><button class="btn sm" style="background:var(--red)">Erase everything</button></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closePalette()">
+  <div class="palette">
+    <input placeholder="Type a command or search…  (Import CSV, New scenario, Go to Portfolio…)" id="palInput" autofocus>
+    <div class="opt" onclick="go('import');closePalette()">⤓ &nbsp;Import CSV</div>
+    <div class="opt" onclick="go('scenarios');closePalette()">⑂ &nbsp;New scenario — Invest vs Prepay</div>
+    <div class="opt" onclick="go('portfolio');closePalette()">▣ &nbsp;Go to Portfolio</div>
+    <div class="opt" onclick="go('expenses');closePalette()">≡ &nbsp;Add transaction</div>
+    <div class="opt" onclick="go('goals');closePalette()">◎ &nbsp;Go to Goals</div>
+  </div>
+</div>
+
+<div class="wf-note">Ledgerly · interactive wireframe · click sidebar, scope, tabs, ⌘K</div>
+
+<script>
+const subs={dashboard:'· How am I doing?',portfolio:'· What do I own & my real return?',debt:'· What do I owe & what it costs',expenses:'· Where does the money go?',scenarios:'· What should I do?',goals:'· Am I on track?',accounts:'· Household & ownership',import:'· CSV / manual only',settings:'· Privacy-first'};
+function go(s){
+  document.querySelectorAll('.screen').forEach(e=>e.classList.remove('show'));
+  document.getElementById(s).classList.add('show');
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
+  document.getElementById('crumb').innerHTML=s.charAt(0).toUpperCase()+s.slice(1)+' <small>'+(subs[s]||'')+'</small>';
+  document.querySelector('.content').scrollTop=0;
+}
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.s));
+// generic active-toggle groups
+['scope','range','ptabs'].forEach(id=>{const el=document.getElementById(id);if(el)el.querySelectorAll('button').forEach(b=>b.onclick=()=>{el.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active')})});
+document.querySelectorAll('.tabs').forEach(t=>t.querySelectorAll('button').forEach(b=>b.onclick=()=>{t.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active')}));
+document.querySelectorAll('.seg').forEach(s=>s.querySelectorAll('.opt').forEach(o=>o.onclick=()=>{s.querySelectorAll('.opt').forEach(x=>x.classList.remove('active'));o.classList.add('active')}));
+function openPalette(){document.getElementById('overlay').classList.add('show');setTimeout(()=>document.getElementById('palInput').focus(),50)}
+function closePalette(){document.getElementById('overlay').classList.remove('show')}
+document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette()}if(e.key==='Escape')closePalette()});
+</script>
+</body>
+</html>
