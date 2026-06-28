@@ -1,0 +1,24 @@
+{
+    # Local-only TLS; Caddy will issue a self-signed cert for localhost
+    local_certs
+}
+
+localhost, 127.0.0.1 {
+    # Forward /api/* to FastAPI
+    reverse_proxy /api/* api:8000
+
+    # Forward everything else to Next.js
+    reverse_proxy * web:3000
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # No CSP header blocks needed for local-only; add if opening to LAN
+        -Server
+    }
+
+    encode gzip
+}
