@@ -23,10 +23,10 @@ All data stays on your computer. No cloud sync, no subscriptions, no telemetry.
 
 | Layer | Technology |
 |---|---|
-| Backend | FastAPI (Python 3.12) · Alembic · APScheduler |
-| Database | PostgreSQL 16 |
-| Frontend | Next.js 14 App Router · TypeScript · Tailwind CSS · shadcn/ui · ECharts |
-| Reverse proxy | Caddy (local TLS) |
+| Backend | FastAPI (Python 3.14) · Alembic · APScheduler |
+| Database | PostgreSQL 17 |
+| Frontend | Next.js 14 App Router · TypeScript · Tailwind CSS · ECharts · Node 24 |
+| Reverse proxy | Caddy |
 | Container | Docker Compose |
 
 ---
@@ -84,13 +84,50 @@ docker compose up --build -d
 
 This builds the API and web images, starts Postgres, runs Alembic migrations, and starts the Caddy reverse proxy. First build takes 2–4 minutes; subsequent starts are fast.
 
-### 5. First-run setup
+### 5. First-run initialization
 
-Open your browser at **https://localhost** (Caddy issues a self-signed certificate for local use — accept the browser warning once).
+Open your browser at **http://localhost**.
 
-You will be redirected to the setup page where you create the household password. This is the single password that protects all your data.
+Because no password exists yet, you are automatically redirected to the **setup page** (`/auth/setup`). This happens exactly once — on every subsequent visit you go straight to the login page.
 
-After that, go to **Settings → Members** to add household members (yourself, spouse, etc.), then start adding accounts.
+**On the setup page:**
+1. Enter a password (minimum 8 characters)
+2. Confirm the password
+3. Click **Create password**
+
+Ledgerly creates the household record, signs you in automatically, and redirects you to the dashboard. There is only one household and one password — there are no user accounts or roles.
+
+After setup, go to **Settings → Members** to add household members (yourself, your spouse, etc.), then create your accounts.
+
+> **Forgot your password?** There is no recovery flow by design (local-first, no email). Reset it by running:
+> ```bash
+> docker compose down -v   # drops the database volume
+> docker compose up -d     # fresh start — repeat first-run setup
+> ```
+
+---
+
+## UI features
+
+### Dark mode / Light mode
+
+Ledgerly ships with a full dark theme. Toggle it two ways:
+
+- **Sidebar** — click the sun/moon icon at the bottom of the left sidebar
+- **Settings → Appearance & Language** — click the Light or Dark button
+
+The preference is saved in `localStorage` and persists across sessions and page reloads. The default theme is **light**.
+
+### Language — FR / EN
+
+The entire interface is available in French and English. Toggle it two ways:
+
+- **Sidebar** — click the globe icon (shows FR / EN) at the bottom of the left sidebar
+- **Settings → Appearance & Language** — click the FR or EN button
+
+The preference is saved in `localStorage` and persists across sessions. The default language is **French (FR)**.
+
+All UI strings — navigation labels, chart tooltips, table headers, error messages, and form placeholders — switch instantly without a page reload.
 
 ---
 
@@ -190,7 +227,7 @@ The scheduler will call this endpoint daily at 18:30 UTC (after European market 
 
 ```
 ledgerly/
-├── api/                    # FastAPI backend (Python 3.12)
+├── api/                    # FastAPI backend (Python 3.14)
 │   ├── app/
 │   │   ├── api/            # HTTP routers
 │   │   ├── core/           # Pure math (amortization, TWR, XIRR, Monte Carlo)
