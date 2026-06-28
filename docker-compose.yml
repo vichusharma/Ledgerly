@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:17-alpine3.21
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ledgerly}
@@ -55,7 +55,7 @@ services:
       - "3000"
 
   caddy:
-    image: caddy:2.9-alpine
+    image: caddy:2-alpine
     restart: unless-stopped
     depends_on:
       - web

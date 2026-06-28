@@ -1,6 +1,4 @@
-# python:3.12-slim had unpatched Debian CVEs
-# python:3.13-slim-bookworm — Python 3.13 LTS on explicitly pinned Debian bookworm
-FROM python:3.13-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 WORKDIR /app
 
