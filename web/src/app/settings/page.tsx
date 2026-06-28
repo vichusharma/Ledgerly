@@ -3,13 +3,20 @@
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { usePersons } from "@/lib/api/hooks";
+import { useLanguage } from "@/lib/context/LanguageContext";
+import { useTheme } from "@/lib/context/ThemeContext";
 import { apiClient } from "@/lib/api/client";
+import { Sun, Moon, Globe } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
   const { data: persons = [], refetch } = usePersons();
   const [newPersonName, setNewPersonName] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const { t, locale, setLocale } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
+  const sx = t("settings");
 
   const handleAddPerson = async () => {
     if (!newPersonName.trim()) return;
@@ -21,9 +28,9 @@ export default function SettingsPage() {
       });
       await refetch();
       setNewPersonName("");
-      setMsg("Personne ajoutée.");
+      setMsg(sx.personAdded);
     } catch {
-      setMsg("Erreur.");
+      setMsg(sx.error);
     } finally {
       setSaving(false);
     }
@@ -38,95 +45,161 @@ export default function SettingsPage() {
     a.click();
   };
 
+  const sectionClass = "bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5";
+
   return (
     <AppShell>
       <div className="p-6 max-w-2xl mx-auto space-y-6">
-        <h1 className="text-xl font-semibold text-slate-900">Paramètres</h1>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-foreground">{sx.title}</h1>
+
+        {/* Appearance & Language */}
+        <section className={`${sectionClass} space-y-4`}>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground">{sx.appearance}</h2>
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-700 dark:text-foreground">{sx.theme}</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => theme === "dark" && toggleTheme()}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                  theme === "light"
+                    ? "bg-brand border-brand text-white"
+                    : "border-surface-border dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-secondary"
+                )}
+              >
+                <Sun className="h-3.5 w-3.5" />
+                {sx.lightMode}
+              </button>
+              <button
+                onClick={() => theme === "light" && toggleTheme()}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                  theme === "dark"
+                    ? "bg-brand border-brand text-white"
+                    : "border-surface-border dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-secondary"
+                )}
+              >
+                <Moon className="h-3.5 w-3.5" />
+                {sx.darkMode}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t dark:border-border pt-4">
+            <span className="text-sm text-slate-700 dark:text-foreground">{sx.language}</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setLocale("fr")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                  locale === "fr"
+                    ? "bg-brand border-brand text-white"
+                    : "border-surface-border dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-secondary"
+                )}
+              >
+                <Globe className="h-3.5 w-3.5" />
+                FR
+              </button>
+              <button
+                onClick={() => setLocale("en")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                  locale === "en"
+                    ? "bg-brand border-brand text-white"
+                    : "border-surface-border dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-secondary"
+                )}
+              >
+                <Globe className="h-3.5 w-3.5" />
+                EN
+              </button>
+            </div>
+          </div>
+        </section>
 
         {/* Household members */}
-        <section className="bg-white rounded-xl border border-surface-border p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-700">Membres du foyer</h2>
+        <section className={`${sectionClass} space-y-4`}>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground">{sx.members}</h2>
           {persons.length > 0 ? (
             <ul className="space-y-2">
               {persons.map((p: any) => (
-                <li key={p.id} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
+                <li key={p.id} className="flex items-center gap-3 py-2 border-b border-slate-50 dark:border-border last:border-0">
                   <div className="w-7 h-7 rounded-full bg-brand-50 text-brand-600 font-semibold text-xs flex items-center justify-center">
                     {p.name[0]}
                   </div>
-                  <span className="text-sm text-slate-700">{p.name}</span>
+                  <span className="text-sm text-slate-700 dark:text-foreground">{p.name}</span>
                   {p.is_primary && (
-                    <span className="text-xs bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">Principal</span>
+                    <span className="text-xs bg-brand-50 text-brand-600 dark:bg-indigo-950 dark:text-indigo-400 px-2 py-0.5 rounded-full">
+                      {sx.primary}
+                    </span>
                   )}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-slate-400">Aucun membre — ajoutez-en un ci-dessous</p>
+            <p className="text-sm text-slate-400 dark:text-muted-foreground">{sx.noMembers}</p>
           )}
           <div className="flex gap-2">
             <input
               value={newPersonName}
               onChange={e => setNewPersonName(e.target.value)}
-              placeholder="Prénom (ex: Antoine)"
-              className="flex-1 text-sm border border-surface-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20"
+              placeholder={sx.memberPlaceholder}
+              className="flex-1 text-sm border border-surface-border dark:border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 bg-white dark:bg-secondary dark:text-foreground"
             />
             <button
               onClick={handleAddPerson}
               disabled={saving || !newPersonName.trim()}
               className="bg-brand text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-brand-700"
             >
-              Ajouter
+              {sx.addMember}
             </button>
           </div>
-          {msg && <p className="text-xs text-slate-400">{msg}</p>}
+          {msg && <p className="text-xs text-slate-400 dark:text-muted-foreground">{msg}</p>}
         </section>
 
         {/* Data & privacy */}
-        <section className="bg-white rounded-xl border border-surface-border p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-slate-700">Données & confidentialité</h2>
+        <section className={`${sectionClass} space-y-3`}>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground">{sx.data}</h2>
           <div className="flex items-center justify-between py-2">
             <div>
-              <p className="text-sm text-slate-700">Exporter toutes les données</p>
-              <p className="text-xs text-slate-400">ZIP contenant JSON + CSV de toutes vos données (RGPD)</p>
+              <p className="text-sm text-slate-700 dark:text-foreground">{sx.exportTitle}</p>
+              <p className="text-xs text-slate-400 dark:text-muted-foreground">{sx.exportDesc}</p>
             </div>
-            <button
-              onClick={handleExport}
-              className="text-sm text-brand font-medium hover:underline"
-            >
-              Exporter
+            <button onClick={handleExport} className="text-sm text-brand font-medium hover:underline">
+              {sx.exportBtn}
             </button>
           </div>
-          <div className="flex items-center justify-between py-2 border-t border-slate-50">
+          <div className="flex items-center justify-between py-2 border-t border-slate-50 dark:border-border">
             <div>
-              <p className="text-sm text-danger">Supprimer toutes les données</p>
-              <p className="text-xs text-slate-400">Suppression définitive et irréversible (RGPD)</p>
+              <p className="text-sm text-danger">{sx.deleteTitle}</p>
+              <p className="text-xs text-slate-400 dark:text-muted-foreground">{sx.deleteDesc}</p>
             </div>
             <button
               onClick={async () => {
-                if (confirm("Supprimer TOUTES les données ? Action irréversible.")) {
+                if (confirm(sx.deleteConfirm)) {
                   await apiClient.delete("/account/data");
                 }
               }}
               className="text-sm text-danger font-medium hover:underline"
             >
-              Supprimer
+              {sx.deleteBtn}
             </button>
           </div>
         </section>
 
         {/* App info */}
-        <section className="bg-white rounded-xl border border-surface-border p-5">
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">À propos</h2>
+        <section className={sectionClass}>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground mb-3">{sx.about}</h2>
           <dl className="space-y-1 text-sm">
-            {[
-              ["Application", "Ledgerly v0.1.0"],
-              ["Stack", "FastAPI · Next.js 14 · PostgreSQL 16"],
-              ["Données", "100% locales — aucune donnée ne quitte votre machine"],
-              ["Licence", "MIT"],
-            ].map(([k, v]) => (
+            {([
+              [sx.application, "Ledgerly v0.1.0"],
+              [sx.stack, "FastAPI · Next.js 14 · PostgreSQL 16"],
+              [sx.data2, locale === "fr" ? "100% locales — aucune donnée ne quitte votre machine" : "100% local — no data leaves your machine"],
+              [sx.licence, "MIT"],
+            ] as [string, string][]).map(([k, v]) => (
               <div key={k} className="flex gap-4">
-                <dt className="text-slate-400 w-28 flex-shrink-0">{k}</dt>
-                <dd className="text-slate-700">{v}</dd>
+                <dt className="text-slate-400 dark:text-muted-foreground w-28 flex-shrink-0">{k}</dt>
+                <dd className="text-slate-700 dark:text-foreground">{v}</dd>
               </div>
             ))}
           </dl>
