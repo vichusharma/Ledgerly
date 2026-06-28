@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useLogin } from "@/lib/api/hooks";
+import { useLogin, useAuthStatus } from "@/lib/api/hooks";
 import { useLanguage } from "@/lib/context/LanguageContext";
 
 export default function LoginPage() {
@@ -12,6 +12,14 @@ export default function LoginPage() {
   const router = useRouter();
   const { t } = useLanguage();
   const lx = t("login");
+
+  const { data: status, isLoading: statusLoading } = useAuthStatus();
+
+  useEffect(() => {
+    if (status && !status.initialized) {
+      router.replace("/auth/setup");
+    }
+  }, [status, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +31,14 @@ export default function LoginPage() {
       setError(lx.wrongPassword);
     }
   };
+
+  if (statusLoading || (status && !status.initialized)) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background flex items-center justify-center px-4">

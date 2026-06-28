@@ -7,6 +7,19 @@ import { apiClient } from "./client";
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
+export const useAuthStatus = () =>
+  useQuery({
+    queryKey: ["auth-status"],
+    queryFn: () => apiClient.get("/auth/status").then(r => r.data as { initialized: boolean }),
+    staleTime: 0,
+    retry: false,
+  });
+
+export const useSetupPassword = () =>
+  useMutation({
+    mutationFn: (password: string) => apiClient.post("/auth/setup", { password }),
+  });
+
 export const useSession = () =>
   useQuery({ queryKey: ["session"], queryFn: () => apiClient.get("/auth/session").then(r => r.data) });
 

@@ -24,6 +24,16 @@ export const translations = {
       wrongPassword: "Mot de passe incorrect",
       privacy: "Toutes les données restent sur votre machine.",
     },
+    setup: {
+      subtitle: "Créez le mot de passe de votre foyer",
+      passwordLabel: "Mot de passe",
+      confirmLabel: "Confirmer le mot de passe",
+      submit: "Créer le mot de passe",
+      submitting: "Création…",
+      mismatch: "Les mots de passe ne correspondent pas",
+      tooShort: "Minimum 8 caractères",
+      errorGeneric: "Une erreur est survenue. Veuillez réessayer.",
+    },
     dashboard: {
       title: "Tableau de bord",
       subtitle: "Vue d'ensemble du patrimoine",
@@ -292,6 +302,16 @@ export const translations = {
       submitting: "Signing in…",
       wrongPassword: "Incorrect password",
       privacy: "All data stays on your machine.",
+    },
+    setup: {
+      subtitle: "Create your household password",
+      passwordLabel: "Password",
+      confirmLabel: "Confirm password",
+      submit: "Create password",
+      submitting: "Creating…",
+      mismatch: "Passwords do not match",
+      tooShort: "Minimum 8 characters",
+      errorGeneric: "An error occurred. Please try again.",
     },
     dashboard: {
       title: "Dashboard",

@@ -60,6 +60,13 @@ async def session(
     return SessionOut(authenticated=True, household_id=current_user.get("hid"))  # type: ignore[arg-type]
 
 
+@router.get("/auth/status")
+async def auth_status(db: AsyncSession = Depends(get_db)) -> dict[str, bool]:
+    """Public — returns whether the household password has been configured."""
+    repo = PersonRepository(db)
+    return {"initialized": await repo.get_household() is not None}
+
+
 @router.post("/auth/setup")
 async def setup_household(
     body: LoginIn,
