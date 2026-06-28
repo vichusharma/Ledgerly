@@ -34,7 +34,7 @@ export default function ScenariosPage() {
 
   const [result, setResult] = useState<any>(null);
   const [activeLabel, setActiveLabel] = useState("base");
-  const [scenarioName, setScenarioName] = useState(sx.parameters);
+  const [scenarioName, setScenarioName] = useState<string>(sx.parameters);
 
   const handleRun = async () => {
     const sc = await apiClient.post("/scenarios", {
