@@ -63,9 +63,9 @@ class Account(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    type: Mapped[AccountType] = mapped_column(Enum(AccountType), nullable=False)
+    type: Mapped[AccountType] = mapped_column(String(30), nullable=False)
     wrapper_type: Mapped[WrapperType | None] = mapped_column(
-        Enum(WrapperType), nullable=True
+        String(20), nullable=True
     )
     institution: Mapped[str | None] = mapped_column(String(200), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="EUR", nullable=False)

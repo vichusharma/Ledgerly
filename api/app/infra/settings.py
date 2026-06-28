@@ -4,8 +4,9 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="postgresql+asyncpg://ledgerly:ledgerly@localhost:5432/ledgerly"
     )
+    db_password_file: str | None = None
 
     # Auth
     secret_key_file: str | None = None
@@ -55,6 +57,16 @@ class Settings(BaseSettings):
             data.get("encryption_key_file") or os.environ.get("ENCRYPTION_KEY_FILE")
         )
         return from_file or v or "dev-insecure-enc-key-change-me!"
+
+    @model_validator(mode="after")
+    def resolve_db_password(self) -> "Settings":
+        file_path = self.db_password_file or os.environ.get("DB_PASSWORD_FILE")
+        password = _read_secret(file_path)
+        if password:
+            parsed = urlparse(self.database_url)
+            netloc = f"{parsed.username}:{password}@{parsed.hostname}:{parsed.port}"
+            self.database_url = urlunparse(parsed._replace(netloc=netloc))
+        return self
 
     @property
     def is_production(self) -> bool:

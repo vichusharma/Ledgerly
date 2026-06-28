@@ -10,7 +10,7 @@ export default function ExpensesPage() {
   const { data: txns = [], isLoading } = useTransactions();
   const { data: categories = [] } = useCategories();
 
-  const catMap = new Map(categories.map((c: any) => [c.id, c]));
+  const catMap = new Map<unknown, { id: unknown; name: string }>(categories.map((c: any) => [c.id, c]));
 
   const filtered = txns.filter((t: any) =>
     t.description.toLowerCase().includes(filter.toLowerCase())

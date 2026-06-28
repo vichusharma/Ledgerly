@@ -24,7 +24,7 @@ class Scenario(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     type: Mapped[ScenarioType] = mapped_column(
-        Enum(ScenarioType), default=ScenarioType.invest_vs_prepay
+        String(50), default=ScenarioType.invest_vs_prepay
     )
     # Parameters stored as JSON so we can add new scenario types without migrations
     parameters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)

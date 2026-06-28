@@ -7,7 +7,7 @@ from decimal import Decimal
 import datetime
 
 from sqlalchemy import (
-    Date, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,
+    Date, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,  # noqa: F401
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -60,7 +60,7 @@ class Instrument(Base):
     ticker: Mapped[str | None] = mapped_column(String(20), nullable=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     asset_class: Mapped[AssetClass] = mapped_column(
-        Enum(AssetClass), default=AssetClass.equity
+        String(20), default=AssetClass.equity
     )
     region: Mapped[str | None] = mapped_column(String(100), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
@@ -97,7 +97,7 @@ class InvestmentLot(Base):
         ForeignKey("instruments.id"), nullable=True
     )  # None for cash contributions/withdrawals
 
-    lot_type: Mapped[LotType] = mapped_column(Enum(LotType), nullable=False)
+    lot_type: Mapped[LotType] = mapped_column(String(20), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8), nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
     fees: Mapped[Decimal] = mapped_column(Numeric(20, 4), default=Decimal("0"))

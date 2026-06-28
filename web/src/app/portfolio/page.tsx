@@ -14,7 +14,7 @@ export default function PortfolioPage() {
   const { data: lots = [] } = useLots();
   const { data: instruments = [] } = useInstruments();
 
-  const instrMap = new Map(instruments.map((i: any) => [i.id, i]));
+  const instrMap = new Map<unknown, { id: unknown; ticker?: string; name?: string }>(instruments.map((i: any) => [i.id, i]));
 
   return (
     <AppShell>

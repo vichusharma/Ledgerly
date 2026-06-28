@@ -8,8 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps
+# Install Python deps (stub the package dir so hatchling can discover it)
 COPY pyproject.toml .
+RUN mkdir -p app && touch app/__init__.py
 RUN pip install --no-cache-dir -e ".[dev]"
 
 # Copy source

@@ -35,7 +35,7 @@ export default function ScenariosPage() {
 
   const handleRun = async () => {
     // Create scenario first, then run it
-    const sc = await apiClient.post("/api/v1/scenarios", {
+    const sc = await apiClient.post("/scenarios", {
       name: scenarioName,
       type: "invest_vs_prepay",
     }).then(r => r.data);
