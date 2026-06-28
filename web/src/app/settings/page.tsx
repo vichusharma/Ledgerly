@@ -15,7 +15,7 @@ export default function SettingsPage() {
     if (!newPersonName.trim()) return;
     setSaving(true);
     try {
-      await apiClient.post("/api/v1/persons", {
+      await apiClient.post("/persons", {
         name: newPersonName,
         is_primary: persons.length === 0,
       });

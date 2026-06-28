@@ -24,7 +24,7 @@ class Goal(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    type: Mapped[GoalType] = mapped_column(Enum(GoalType), default=GoalType.other)
+    type: Mapped[GoalType] = mapped_column(String(30), default=GoalType.other)
     target_amount: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
     target_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
@@ -61,7 +61,7 @@ class RecurringExpense(Base):
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
     frequency: Mapped[RecurrenceFrequency] = mapped_column(
-        Enum(RecurrenceFrequency), default=RecurrenceFrequency.monthly
+        String(20), default=RecurrenceFrequency.monthly
     )
     day_of_month: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

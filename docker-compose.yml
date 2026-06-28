@@ -27,10 +27,11 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ledgerly}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ledgerly}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ledgerly}:placeholder@db:5432/${POSTGRES_DB:-ledgerly}
+      DB_PASSWORD_FILE: /run/secrets/db_password
       SECRET_KEY_FILE: /run/secrets/secret_key
       ENCRYPTION_KEY_FILE: /run/secrets/encryption_key
-      ENVIRONMENT: ${ENVIRONMENT:-production}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
     secrets:
       - db_password
       - secret_key

@@ -115,8 +115,8 @@ class ScenarioService:
                 series=series,
             )
 
-        # Cache result
-        scenario.last_result = {k: v.model_dump() for k, v in results_by_label.items()}
+        # Cache result — use mode='json' so Decimal/date values are serializable
+        scenario.last_result = {k: v.model_dump(mode="json") for k, v in results_by_label.items()}
         scenario.last_run_at = datetime.datetime.utcnow()
         await self.session.flush()
 

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.infra.db import get_db
 from app.infra.security import create_access_token, verify_password
+from app.infra.settings import get_settings
 from app.domains.accounts.repository import PersonRepository
 
 router = APIRouter(tags=["auth"])
@@ -34,12 +35,13 @@ async def login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Wrong password")
 
     token = create_access_token({"sub": "household", "hid": household.id})
+    is_secure = get_settings().is_production
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        secure=True,
-        samesite="strict",
+        secure=is_secure,
+        samesite="strict" if is_secure else "lax",
         max_age=60 * 60 * 8,
     )
     return SessionOut(authenticated=True, household_id=household.id)

@@ -25,7 +25,7 @@ class Loan(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    type: Mapped[LoanType] = mapped_column(Enum(LoanType), default=LoanType.mortgage)
+    type: Mapped[LoanType] = mapped_column(String(20), default=LoanType.mortgage)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
 
     principal: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
