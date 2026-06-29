@@ -4,13 +4,14 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.accounts.models import Account, AccountType, Person
 from app.domains.investments.models import Instrument, InstrumentPrice, InvestmentLot, LotType
 from app.domains.liabilities.models import AmortizationRow, Loan
 from app.domains.networth.models import AccountSnapshot
+from app.domains.transactions.models import Transaction
 from app.domains.networth.schemas import NetWorthBreakdown, NetWorthOut, NetWorthSeriesOut
 
 
@@ -158,18 +159,16 @@ class NetWorthService:
     ) -> Decimal:
         """Compute the current balance for any account type."""
         if account.type in (AccountType.bank, AccountType.savings):
-            # Use last snapshot if available, else 0
-            snap_result = await self.session.execute(
-                select(AccountSnapshot)
-                .where(
-                    AccountSnapshot.account_id == account.id,
-                    AccountSnapshot.snapshot_date <= as_of,
+            # Sum all non-split-parent transactions up to as_of to get running balance
+            result = await self.session.execute(
+                select(func.sum(Transaction.amount)).where(
+                    Transaction.account_id == account.id,
+                    Transaction.date <= as_of,
+                    Transaction.is_split.is_(False),
                 )
-                .order_by(AccountSnapshot.snapshot_date.desc())
-                .limit(1)
             )
-            snap = snap_result.scalar_one_or_none()
-            return snap.balance if snap else Decimal("0")
+            total = result.scalar_one_or_none()
+            return total if total is not None else Decimal("0")
 
         elif account.type == AccountType.investment_wrapper:
             # Sum: (quantity × latest_price) for all buy lots

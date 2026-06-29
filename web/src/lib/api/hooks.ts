@@ -207,3 +207,30 @@ export const useImportBatches = () =>
 
 export const useImportMappings = () =>
   useQuery({ queryKey: ["import-mappings"], queryFn: () => apiClient.get("/import/mappings").then(r => r.data) });
+
+// Detect format + return a preview (CSV mapping hints or parsed lines). No DB write.
+export const usePreviewStatement = () =>
+  useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/imports/preview", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+  });
+
+// Run the import. Invalidates everything a statement can affect.
+export const useImportStatement = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/imports/csv", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["imports"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["networth"] });
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
+      qc.invalidateQueries({ queryKey: ["lots"] });
+    },
+  });
+};

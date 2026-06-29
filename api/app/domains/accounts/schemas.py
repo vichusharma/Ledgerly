@@ -35,6 +35,7 @@ class AccountCreateIn(BaseModel):
 
 class AccountUpdateIn(BaseModel):
     name: str | None = None
+    type: AccountType | None = None
     institution: str | None = None
     owner_id: int | None = None
     joint_owner_id: int | None = None

@@ -33,6 +33,8 @@ dependencies = [
     "apscheduler>=3.10.4",
     # CSV / data
     "chardet>=5.2.0",
+    # Statement formats (OFX/QFX). QIF and CAMT.053 are parsed with the stdlib.
+    "ofxparse>=0.21",
     # Crypto (at-rest encryption helpers)
     "cryptography>=42.0.0",
 ]

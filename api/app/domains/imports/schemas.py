@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel
 
@@ -35,3 +36,30 @@ class ImportBatchOut(BaseModel):
     row_count: int
     duplicate_count: int
     is_rolled_back: bool
+
+
+class SampleTxn(BaseModel):
+    """A canonical preview transaction (used for self-describing formats)."""
+    date: datetime.date
+    amount: Decimal
+    description: str
+
+
+class StatementPreviewOut(BaseModel):
+    """Preview response for any statement format — no DB write.
+
+    For ``format == "csv"`` the ``headers``/``delimiter``/``detected`` fields
+    drive the mapping UI. For OFX/QIF/CAMT they stay empty and ``sample_txns``
+    holds the already-parsed canonical lines (no mapping needed).
+    """
+    format: str                              # "csv" | "ofx" | "qif" | "camt"
+    headers: list[str] = []
+    delimiter: str = ","
+    detected: dict[str, str | None] = {}     # {"date": "Date opération", "amount": None, ...}
+    preset_matched: bool = False             # a built-in bank preset was applied (CSV only)
+    sample: list[dict] = []                  # CSV: first rows as dicts keyed by header
+    sample_txns: list[SampleTxn] = []        # canonical preview of the first parsed lines
+
+
+# Backwards-compatible alias (older imports referenced CsvPreviewOut).
+CsvPreviewOut = StatementPreviewOut

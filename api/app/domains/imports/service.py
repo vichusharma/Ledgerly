@@ -1,17 +1,31 @@
-"""CSV import service — parse, dedup, auto-categorize, persist."""
+"""Statement import service — multi-format parsing, dedup via savepoints, auto-snapshot.
+
+Format detection and parsing live in ``app.domains.imports.parsers``. This
+service orchestrates: detect → parse to canonical RawTxns → dedup + categorize
++ insert (per-row savepoints) → refresh the net-worth snapshot.
+"""
 from __future__ import annotations
 
-import csv
 import datetime
-import io
-from decimal import Decimal, InvalidOperation
+from decimal import InvalidOperation
+from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domains.accounts.models import Account
+from app.domains.imports import parsers
 from app.domains.imports.models import ImportMapping
-from app.domains.imports.schemas import ColumnMappingIn, ImportBatchOut, ImportMappingOut
+from app.domains.imports.parsers import csv_parser
+from app.domains.imports.parsers.base import RawTxn
+from app.domains.imports.schemas import (
+    ColumnMappingIn,
+    ImportBatchOut,
+    ImportMappingOut,
+    SampleTxn,
+    StatementPreviewOut,
+)
 from app.domains.transactions.models import ImportBatch, Transaction
 from app.domains.transactions.service import TransactionService
 
@@ -50,42 +64,204 @@ class ImportService:
         await self.session.flush()
         return ImportMappingOut.model_validate(mapping)
 
-    # ── CSV import ────────────────────────────────────────────────────────
+    # ── Helpers ───────────────────────────────────────────────────────────
 
-    async def import_csv(
+    @staticmethod
+    def _decode(content: bytes, encoding: str = "utf-8") -> str:
+        for enc in (encoding, "utf-8", "latin-1"):
+            try:
+                return content.decode(enc)
+            except (UnicodeDecodeError, LookupError):
+                continue
+        return content.decode("utf-8", errors="ignore")
+
+    async def _account_institution(self, account_id: int) -> str | None:
+        account = await self.session.get(Account, account_id)
+        return account.institution if account else None
+
+    # ── Preview (no DB write) ─────────────────────────────────────────────
+
+    async def preview_statement(
+        self, content: bytes, filename: str | None, account_id: int | None
+    ) -> StatementPreviewOut:
+        fmt = parsers.detect_format(filename, content)
+
+        if fmt != "csv":
+            txns = parsers.parse_non_csv(fmt, content)
+            return StatementPreviewOut(
+                format=fmt,
+                sample_txns=[
+                    SampleTxn(date=t.date, amount=t.amount, description=t.description)
+                    for t in txns[:5]
+                ],
+            )
+
+        # CSV: build the mapping preview.
+        text = self._decode(content)
+        headers, rows, delimiter = csv_parser.read_rows(text)
+        detected = csv_parser.detect_columns(headers)
+
+        institution = (
+            await self._account_institution(account_id) if account_id else None
+        )
+        preset = parsers.presets.match(institution)
+        preset_matched = False
+        date_format = "%d/%m/%Y"
+        decimal_separator = ","
+        if preset:
+            preset_matched = True
+            date_format = preset.get("date_format", date_format)
+            decimal_separator = preset.get("decimal_separator", decimal_separator)
+            # Only adopt preset column names that actually exist in this file.
+            for key, col in preset.get("column_map", {}).items():
+                if col in headers:
+                    detected[key] = col
+
+        sample_txns = csv_parser.build_txns(rows[:5], detected, date_format, decimal_separator)
+        return StatementPreviewOut(
+            format="csv",
+            headers=headers,
+            delimiter=delimiter,
+            detected=detected,
+            preset_matched=preset_matched,
+            sample=[dict(r) for r in rows[:3]],
+            sample_txns=[
+                SampleTxn(date=t.date, amount=t.amount, description=t.description)
+                for t in sample_txns
+            ],
+        )
+
+    # ── Import ────────────────────────────────────────────────────────────
+
+    async def import_statement(
         self,
         content: bytes,
         filename: str,
         account_id: int,
         mapping_id: int | None = None,
+        # Explicit CSV column overrides (take priority over preset/saved/auto)
+        date_col: str | None = None,
+        amount_col: str | None = None,
+        debit_col: str | None = None,
+        credit_col: str | None = None,
+        desc_col: str | None = None,
+        delimiter: str | None = None,
+        date_format: str = "%d/%m/%Y",
+        decimal_separator: str = ",",
+        save_as: str | None = None,
     ) -> ImportBatchOut:
-        # Load column mapping if provided
-        col_map: dict[str, str] = {}
-        date_fmt = "%d/%m/%Y"
-        dec_sep = ","
-        encoding = "utf-8"
-        skip_rows = 0
+        fmt = parsers.detect_format(filename, content)
 
+        if fmt != "csv":
+            txns = parsers.parse_non_csv(fmt, content)
+        else:
+            txns = await self._csv_txns(
+                content, account_id, mapping_id,
+                date_col, amount_col, debit_col, credit_col, desc_col,
+                delimiter, date_format, decimal_separator, save_as,
+            )
+
+        return await self._persist(txns, account_id, filename)
+
+    async def _csv_txns(
+        self,
+        content: bytes,
+        account_id: int,
+        mapping_id: int | None,
+        date_col: str | None,
+        amount_col: str | None,
+        debit_col: str | None,
+        credit_col: str | None,
+        desc_col: str | None,
+        delimiter: str | None,
+        date_format: str,
+        decimal_separator: str,
+        save_as: str | None,
+    ) -> list[RawTxn]:
+        # 1. Saved mapping (if explicitly selected)
+        col_map: dict[str, Any] = {}
+        skip_rows: int | None = None
+        encoding = "utf-8"
         if mapping_id:
             m = await self.session.get(ImportMapping, mapping_id)
             if m:
-                col_map = m.column_map
-                date_fmt = m.date_format
-                dec_sep = m.decimal_separator
+                col_map = m.column_map or {}
+                date_format = m.date_format
+                decimal_separator = m.decimal_separator
                 encoding = m.encoding
-                skip_rows = m.skip_rows
+                skip_rows = m.skip_rows or None
+                delimiter = delimiter or col_map.get("delimiter")
 
-        # Decode
-        try:
-            text = content.decode(encoding)
-        except UnicodeDecodeError:
-            text = content.decode("latin-1")
+        # 2. Bank preset (by the account's institution)
+        institution = await self._account_institution(account_id)
+        preset = parsers.presets.match(institution)
+        preset_cols: dict[str, str] = {}
+        if preset and not mapping_id:
+            date_format = date_format if date_col else preset.get("date_format", date_format)
+            decimal_separator = (
+                decimal_separator if amount_col or debit_col or credit_col
+                else preset.get("decimal_separator", decimal_separator)
+            )
+            delimiter = delimiter or preset.get("delimiter")
+            preset_cols = preset.get("column_map", {})
 
-        reader = csv.DictReader(io.StringIO(text))
-        rows = list(reader)
-        rows = rows[skip_rows:]  # skip header rows
+        # 3. Read rows
+        text = self._decode(content, encoding)
+        headers, rows, _ = csv_parser.read_rows(text, delimiter=delimiter, skip_rows=skip_rows)
+        detected = csv_parser.detect_columns(headers)
 
-        # Build batch
+        def resolve(field: str, override: str | None) -> str | None:
+            # explicit override → saved mapping → preset (if in headers) → auto-detect
+            if override:
+                return override
+            if col_map.get(field):
+                return col_map[field]
+            preset_col = preset_cols.get(field)
+            if preset_col and preset_col in headers:
+                return preset_col
+            return detected.get(field)
+
+        cols = {
+            "date": resolve("date", date_col),
+            "amount": resolve("amount", amount_col),
+            "debit": resolve("debit", debit_col),
+            "credit": resolve("credit", credit_col),
+            "description": resolve("description", desc_col),
+        }
+
+        # 4. Optionally persist this mapping for future use
+        if save_as:
+            await self._save_resolved_mapping(
+                save_as, cols, delimiter, date_format, decimal_separator
+            )
+
+        return csv_parser.build_txns(rows, cols, date_format, decimal_separator)
+
+    async def _save_resolved_mapping(
+        self, institution: str, cols: dict, delimiter: str | None,
+        date_format: str, decimal_separator: str,
+    ) -> None:
+        new_col_map = {k: v for k, v in {**cols, "delimiter": delimiter}.items() if v}
+        existing = await self.session.execute(
+            select(ImportMapping).where(ImportMapping.institution == institution)
+        )
+        existing_m = existing.scalar_one_or_none()
+        if existing_m:
+            existing_m.column_map = new_col_map
+            existing_m.date_format = date_format
+            existing_m.decimal_separator = decimal_separator
+        else:
+            self.session.add(ImportMapping(
+                institution=institution,
+                column_map=new_col_map,
+                date_format=date_format,
+                decimal_separator=decimal_separator,
+            ))
+        await self.session.flush()
+
+    async def _persist(
+        self, txns: list[RawTxn], account_id: int, filename: str
+    ) -> ImportBatchOut:
         batch = ImportBatch(
             account_id=account_id,
             filename=filename,
@@ -98,54 +274,42 @@ class ImportService:
 
         txn_service = TransactionService(self.session)
         rules = await txn_service._get_rules()
-
         imported = 0
         dupes = 0
 
-        for row in rows:
+        for raw in txns:
             try:
-                date_raw = row.get(col_map.get("date", "date"), "").strip()
-                amount_raw = row.get(col_map.get("amount", "amount"), "0").strip()
-                desc_raw = row.get(col_map.get("description", "description"), "").strip()
-
-                if not date_raw:
-                    continue
-
-                txn_date = datetime.date.fromisoformat(date_raw) if "-" in date_raw else \
-                    datetime.datetime.strptime(date_raw, date_fmt).date()
-
-                # Normalise decimal separator
-                amount_str = amount_raw.replace(dec_sep, ".").replace(" ", "").replace(" ", "")
-                amount = Decimal(amount_str)
-                dedup_hash = Transaction.compute_hash(account_id, txn_date, amount, desc_raw)
-
-                category_id = txn_service._auto_categorize(desc_raw, rules)
-
+                dedup_hash = Transaction.compute_hash(
+                    account_id, raw.date, raw.amount, raw.description
+                )
+                category_id = txn_service._auto_categorize(raw.description, rules)
                 txn = Transaction(
                     account_id=account_id,
                     import_batch_id=batch.id,
-                    date=txn_date,
-                    amount=amount,
-                    description=desc_raw,
+                    date=raw.date,
+                    amount=raw.amount,
+                    description=raw.description,
                     category_id=category_id,
                     dedup_hash=dedup_hash,
                 )
-                self.session.add(txn)
-                try:
+                # Savepoint per row so a duplicate doesn't roll back the whole session.
+                async with self.session.begin_nested():
+                    self.session.add(txn)
                     await self.session.flush()
-                    imported += 1
-                except IntegrityError:
-                    await self.session.rollback()
-                    # Re-attach batch after rollback
-                    self.session.add(batch)
-                    dupes += 1
-
+                imported += 1
+            except IntegrityError:
+                dupes += 1
             except (InvalidOperation, ValueError, KeyError):
-                continue  # Skip malformed rows
+                continue
 
         batch.row_count = imported
         batch.duplicate_count = dupes
         await self.session.flush()
+
+        # Refresh today's net-worth snapshot so the dashboard reflects new transactions.
+        from app.domains.networth.service import NetWorthService
+        await NetWorthService(self.session).take_snapshot()
+
         return ImportBatchOut.model_validate(batch)
 
     # ── Batch management ──────────────────────────────────────────────────
@@ -157,7 +321,6 @@ class ImportService:
         return [ImportBatchOut.model_validate(b) for b in result.scalars()]
 
     async def rollback_batch(self, batch_id: int) -> bool:
-        """P2: delete all transactions in a batch and mark it rolled back."""
         batch = await self.session.get(ImportBatch, batch_id)
         if batch is None or batch.is_rolled_back:
             return False
