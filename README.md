@@ -19,6 +19,37 @@ All data stays on your computer. No cloud sync, no subscriptions, no telemetry.
 
 ---
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><b>Login</b></td>
+    <td align="center"><b>Dashboard</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/login.png" alt="Login page" /></td>
+    <td><img src="docs/screenshots/dashboard.png" alt="Dashboard" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Accounts — searchable bank picker</b></td>
+    <td align="center"><b>Portfolio</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/accounts.png" alt="Accounts" /></td>
+    <td><img src="docs/screenshots/portfolio.png" alt="Portfolio" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Simulator</b></td>
+    <td align="center"><b>Settings — Dark/Light · FR/EN</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/scenarios.png" alt="Simulator" /></td>
+    <td><img src="docs/screenshots/settings.png" alt="Settings" /></td>
+  </tr>
+</table>
+
+---
+
 ## Stack
 
 | Layer | Technology |
