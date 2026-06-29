@@ -14,6 +14,7 @@ All data stays on your computer. No cloud sync, no subscriptions, no telemetry.
 - **Transactions** — CSV import from any bank (saved column mappings, sha256 dedup, batch rollback), hierarchical categories, regex auto-categorization, split transactions
 - **Scenarios** — invest-vs-prepay simulator with low/base/high return assumptions and breakeven month; Monte Carlo projection (p10/p50/p90 bands across 1 000 paths)
 - **Goals** — financial independence target, projected reach date, on/off-track status
+- **Pension** — French state pension simulator (régime général + AGIRC-ARRCO); inputs birth year, career start, current salary, growth rate, and planned retirement year; outputs monthly pension, replacement ratio, SAM, AGIRC-ARRCO points, and a sensitivity table across retirement ages; 2026 constants (PASS, décote/surcote, minimum contributif)
 - **Planning** — vacation budgets, recurring expenses
 - **GDPR** — full data export (JSON + CSV ZIP) and hard erase
 
@@ -45,6 +46,14 @@ All data stays on your computer. No cloud sync, no subscriptions, no telemetry.
   <tr>
     <td><img src="docs/screenshots/scenarios.png" alt="Simulator" /></td>
     <td><img src="docs/screenshots/settings.png" alt="Settings" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>State Pension simulator</b></td>
+    <td align="center"><b>Pension — results &amp; sensitivity table</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/pension.png" alt="Pension simulator" /></td>
+    <td><img src="docs/screenshots/pension_results.png" alt="Pension results" /></td>
   </tr>
 </table>
 

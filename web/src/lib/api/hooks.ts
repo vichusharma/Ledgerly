@@ -175,6 +175,14 @@ export const useCreateGoal = () => {
   });
 };
 
+// ── Pension ───────────────────────────────────────────────────────────────────
+
+export const usePensionProjection = () =>
+  useMutation({
+    mutationFn: (body: object) =>
+      apiClient.post("/pension/project", body).then(r => r.data),
+  });
+
 // ── Imports ───────────────────────────────────────────────────────────────────
 
 export const useImportBatches = () =>
