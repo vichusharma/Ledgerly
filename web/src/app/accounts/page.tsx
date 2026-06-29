@@ -249,10 +249,12 @@ export default function AccountsPage() {
     { value: "liability",          label: ax.types.liability },
   ];
 
+  const PAGE_SIZE = 8;
   const [showForm, setShowForm] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [form, setForm] = useState({
     name: "", type: "bank", wrapper_type: "", institution: "",
-    currency: "EUR", owner_id: "", ownership_pct: "100",
+    currency: "EUR", owner_id: "", joint_owner_id: "", ownership_pct: "100",
   });
 
   const handleCreate = async () => {
@@ -260,8 +262,10 @@ export default function AccountsPage() {
       ...form,
       wrapper_type: form.wrapper_type || null,
       owner_id: Number(form.owner_id),
+      joint_owner_id: form.joint_owner_id ? Number(form.joint_owner_id) : null,
       ownership_pct: parseFloat(form.ownership_pct),
     });
+    setForm({ name: "", type: "bank", wrapper_type: "", institution: "", currency: "EUR", owner_id: "", joint_owner_id: "", ownership_pct: "100" });
     setShowForm(false);
   };
 
@@ -338,7 +342,7 @@ export default function AccountsPage() {
                 <label className="text-xs text-slate-500 dark:text-muted-foreground">{ax.owner}</label>
                 <select
                   value={form.owner_id}
-                  onChange={e => setForm(f => ({ ...f, owner_id: e.target.value }))}
+                  onChange={e => setForm(f => ({ ...f, owner_id: e.target.value, joint_owner_id: e.target.value === f.joint_owner_id ? "" : f.joint_owner_id }))}
                   className={selectClass}
                 >
                   <option value="">{ax.select}</option>
@@ -346,9 +350,23 @@ export default function AccountsPage() {
                 </select>
               </div>
               <div>
+                <label className="text-xs text-slate-500 dark:text-muted-foreground">{ax.jointOwner}</label>
+                <select
+                  value={form.joint_owner_id}
+                  onChange={e => setForm(f => ({ ...f, joint_owner_id: e.target.value }))}
+                  className={selectClass}
+                >
+                  <option value="">{ax.none}</option>
+                  {persons
+                    .filter((p: any) => !form.owner_id || String(p.id) !== form.owner_id)
+                    .map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div>
                 <label className="text-xs text-slate-500 dark:text-muted-foreground">{ax.ownershipPct}</label>
                 <input
                   type="number"
+                  min={1} max={100}
                   value={form.ownership_pct}
                   onChange={e => setForm(f => ({ ...f, ownership_pct: e.target.value }))}
                   className={`${inputClass} money`}
@@ -377,12 +395,18 @@ export default function AccountsPage() {
         {ACCOUNT_TYPES.map(({ value, label }) => {
           const accs = groupByType[value] || [];
           if (accs.length === 0) return null;
+          const isExpanded = expanded[value];
+          const visible = isExpanded ? accs : accs.slice(0, PAGE_SIZE);
+          const remaining = accs.length - PAGE_SIZE;
           return (
             <div key={value}>
-              <h2 className="text-xs font-semibold text-slate-400 dark:text-muted-foreground uppercase tracking-wider mb-2">{label}</h2>
+              <h2 className="text-xs font-semibold text-slate-400 dark:text-muted-foreground uppercase tracking-wider mb-2">
+                {label} <span className="font-normal">({accs.length})</span>
+              </h2>
               <div className="space-y-2">
-                {accs.map((a: any) => {
+                {visible.map((a: any) => {
                   const owner = persons.find((p: any) => p.id === a.owner_id);
+                  const joint = a.joint_owner_id ? persons.find((p: any) => p.id === a.joint_owner_id) : null;
                   return (
                     <div key={a.id} className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-4 flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-secondary flex items-center justify-center">
@@ -392,6 +416,7 @@ export default function AccountsPage() {
                         <p className="text-sm font-medium text-slate-800 dark:text-foreground">{a.name}</p>
                         <p className="text-xs text-slate-400 dark:text-muted-foreground">
                           {a.institution || "—"} · {owner?.name || "—"}
+                          {joint ? ` + ${joint.name}` : ""}
                           {a.wrapper_type ? ` · ${a.wrapper_type}` : ""}
                           {a.ownership_pct !== 100 ? ` · ${a.ownership_pct}%` : ""}
                         </p>
@@ -401,6 +426,16 @@ export default function AccountsPage() {
                   );
                 })}
               </div>
+              {accs.length > PAGE_SIZE && (
+                <button
+                  onClick={() => setExpanded(e => ({ ...e, [value]: !isExpanded }))}
+                  className="mt-2 text-xs text-brand hover:underline"
+                >
+                  {isExpanded
+                    ? ax.showLess
+                    : ax.showMore.replace("{{n}}", String(remaining))}
+                </button>
+              )}
             </div>
           );
         })}
