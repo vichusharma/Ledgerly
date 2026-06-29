@@ -35,6 +35,8 @@ dependencies = [
     "chardet>=5.2.0",
     # Statement formats (OFX/QFX). QIF and CAMT.053 are parsed with the stdlib.
     "ofxparse>=0.21",
+    # PDF statement parsing (table + text extraction).
+    "pdfplumber>=0.11",
     # Crypto (at-rest encryption helpers)
     "cryptography>=42.0.0",
 ]

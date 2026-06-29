@@ -1,18 +1,46 @@
 """Transactions domain models."""
 from __future__ import annotations
 
-import enum
+import datetime
 import hashlib
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean, Date, Enum, ForeignKey, Integer, Numeric,
-    String, Text, UniqueConstraint,
+    Boolean,
+    Column,
+    Date,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Table,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-import datetime
 
 from app.infra.db import Base
+
+# Association table — no ORM model needed (no extra columns).
+transaction_labels = Table(
+    "transaction_labels",
+    Base.metadata,
+    Column(
+        "transaction_id", Integer,
+        ForeignKey("transactions.id", ondelete="CASCADE"), primary_key=True,
+    ),
+    Column(
+        "label_id", Integer,
+        ForeignKey("labels.id", ondelete="CASCADE"), primary_key=True,
+    ),
+)
+
+
+class Label(Base):
+    __tablename__ = "labels"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    color: Mapped[str] = mapped_column(String(7), nullable=False, default="#94a3b8")
 
 
 class Category(Base):
@@ -25,8 +53,8 @@ class Category(Base):
     )
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)  # hex
 
-    parent: Mapped["Category | None"] = relationship("Category", remote_side="Category.id")
-    children: Mapped[list["Category"]] = relationship("Category", back_populates="parent")
+    parent: Mapped[Category | None] = relationship("Category", remote_side="Category.id")
+    children: Mapped[list[Category]] = relationship("Category", back_populates="parent")
 
 
 class CategoryRule(Base):
@@ -40,7 +68,7 @@ class CategoryRule(Base):
     )  # None = applies to all accounts
     priority: Mapped[int] = mapped_column(Integer, default=0)
 
-    category: Mapped["Category"] = relationship("Category")
+    category: Mapped[Category] = relationship("Category")
 
 
 class ImportBatch(Base):
@@ -56,7 +84,7 @@ class ImportBatch(Base):
     duplicate_count: Mapped[int] = mapped_column(Integer, default=0)
     is_rolled_back: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    transactions: Mapped[list["Transaction"]] = relationship(
+    transactions: Mapped[list[Transaction]] = relationship(
         "Transaction", back_populates="import_batch"
     )
 
@@ -95,12 +123,15 @@ class Transaction(Base):
         ForeignKey("recurring_expenses.id"), nullable=True
     )
 
-    import_batch: Mapped["ImportBatch | None"] = relationship(
+    import_batch: Mapped[ImportBatch | None] = relationship(
         "ImportBatch", back_populates="transactions"
     )
-    category: Mapped["Category | None"] = relationship("Category")
-    splits: Mapped[list["Transaction"]] = relationship(
+    category: Mapped[Category | None] = relationship("Category")
+    splits: Mapped[list[Transaction]] = relationship(
         "Transaction", foreign_keys=[parent_id]
+    )
+    labels: Mapped[list[Label]] = relationship(
+        "Label", secondary=transaction_labels, lazy="selectin"
     )
 
     __table_args__ = (

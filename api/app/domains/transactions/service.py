@@ -2,22 +2,61 @@
 from __future__ import annotations
 
 import re
-from decimal import Decimal
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.transactions.models import Category, CategoryRule, Transaction
+from app.domains.transactions.models import Category, CategoryRule, Label, Transaction
 from app.domains.transactions.schemas import (
-    CategoryCreateIn, CategoryOut,
-    RuleCreateIn, RuleOut,
-    TransactionCreateIn, TransactionOut, TransactionSplitIn, TransactionUpdateIn,
+    CategoryCreateIn,
+    CategoryOut,
+    LabelCreateIn,
+    LabelOut,
+    RuleCreateIn,
+    RuleOut,
+    TransactionCreateIn,
+    TransactionOut,
+    TransactionSplitIn,
+    TransactionUpdateIn,
 )
 
 
 class TransactionService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    # ── Labels ────────────────────────────────────────────────────────────
+
+    async def list_labels(self) -> list[LabelOut]:
+        result = await self.session.execute(select(Label).order_by(Label.name))
+        return [LabelOut.model_validate(lb) for lb in result.scalars()]
+
+    async def create_label(self, body: LabelCreateIn) -> LabelOut:
+        lb = Label(name=body.name, color=body.color)
+        self.session.add(lb)
+        await self.session.flush()
+        return LabelOut.model_validate(lb)
+
+    async def delete_label(self, label_id: int) -> None:
+        lb = await self.session.get(Label, label_id)
+        if lb:
+            await self.session.delete(lb)
+
+    async def set_transaction_labels(
+        self, txn_id: int, label_ids: list[int]
+    ) -> TransactionOut | None:
+        from sqlalchemy.orm import selectinload
+        opts = [selectinload(Transaction.labels)]
+        txn = await self.session.get(Transaction, txn_id, options=opts)
+        if txn is None:
+            return None
+        if label_ids:
+            result = await self.session.execute(select(Label).where(Label.id.in_(label_ids)))
+            txn.labels = list(result.scalars())
+        else:
+            txn.labels = []
+        await self.session.flush()
+        return TransactionOut.model_validate(txn)
 
     # ── Categories ────────────────────────────────────────────────────────
 

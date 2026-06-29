@@ -6,13 +6,38 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.domains.transactions.schemas import (
-    CategoryCreateIn, CategoryOut,
-    RuleCreateIn, RuleOut,
-    TransactionCreateIn, TransactionOut, TransactionUpdateIn, TransactionSplitIn,
+    CategoryCreateIn,
+    CategoryOut,
+    LabelCreateIn,
+    LabelOut,
+    RuleCreateIn,
+    RuleOut,
+    TransactionCreateIn,
+    TransactionLabelIn,
+    TransactionOut,
+    TransactionSplitIn,
+    TransactionUpdateIn,
 )
 from app.domains.transactions.service import TransactionService
 
 router = APIRouter(tags=["transactions"], dependencies=[Depends(get_current_user)])
+
+
+# ── Labels ────────────────────────────────────────────────────────────────────
+
+@router.get("/labels", response_model=list[LabelOut])
+async def list_labels(db: AsyncSession = Depends(get_db)) -> list[LabelOut]:
+    return await TransactionService(db).list_labels()
+
+
+@router.post("/labels", response_model=LabelOut, status_code=201)
+async def create_label(body: LabelCreateIn, db: AsyncSession = Depends(get_db)) -> LabelOut:
+    return await TransactionService(db).create_label(body)
+
+
+@router.delete("/labels/{label_id}", status_code=204)
+async def delete_label(label_id: int, db: AsyncSession = Depends(get_db)) -> None:
+    await TransactionService(db).delete_label(label_id)
 
 
 # ── Categories ────────────────────────────────────────────────────────────────
@@ -95,6 +120,16 @@ async def split_transaction(
     txn_id: int, body: TransactionSplitIn, db: AsyncSession = Depends(get_db)
 ) -> list[TransactionOut]:
     return await TransactionService(db).split_transaction(txn_id, body)
+
+
+@router.put("/transactions/{txn_id}/labels", response_model=TransactionOut)
+async def set_transaction_labels(
+    txn_id: int, body: TransactionLabelIn, db: AsyncSession = Depends(get_db)
+) -> TransactionOut:
+    obj = await TransactionService(db).set_transaction_labels(txn_id, body.label_ids)
+    if obj is None:
+        raise HTTPException(404, "Transaction not found")
+    return obj
 
 
 @router.delete("/transactions/{txn_id}", status_code=204)

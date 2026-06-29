@@ -7,6 +7,22 @@ from decimal import Decimal
 from pydantic import BaseModel, Field
 
 
+class LabelCreateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    color: str = "#94a3b8"
+
+
+class LabelOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: int
+    name: str
+    color: str
+
+
+class TransactionLabelIn(BaseModel):
+    label_ids: list[int]
+
+
 class CategoryCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     parent_id: int | None = None
@@ -75,3 +91,4 @@ class TransactionOut(BaseModel):
     is_split: bool
     parent_id: int | None
     import_batch_id: int | None
+    labels: list[LabelOut] = []

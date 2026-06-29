@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-Format = str  # "csv" | "ofx" | "qif" | "camt"
+Format = str  # "csv" | "ofx" | "qif" | "camt" | "pdf"
 
 
 def _sniff(text: str) -> Format | None:
@@ -26,6 +26,8 @@ def detect_format(filename: str | None, content: bytes) -> Format:
     mapping safety net in the UI.
     """
     ext = os.path.splitext(filename or "")[1].lower().lstrip(".")
+    if ext == "pdf":
+        return "pdf"
     if ext in ("ofx", "qfx"):
         return "ofx"
     if ext == "qif":

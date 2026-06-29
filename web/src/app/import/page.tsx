@@ -16,7 +16,7 @@ import { InstitutionCombobox } from "@/components/InstitutionCombobox";
 type Step = "upload" | "mapping" | "done";
 
 interface Preview {
-  format: "csv" | "ofx" | "qif" | "camt";
+  format: "csv" | "ofx" | "qif" | "camt" | "pdf";
   headers: string[];
   delimiter: string;
   detected: Record<string, string | null>;
@@ -67,7 +67,7 @@ export default function ImportPage() {
   const setM = (patch: Partial<Mapping>) => setMapping(prev => ({ ...prev, ...patch }));
 
   const fmtLabel = (f: string) =>
-    f === "ofx" ? ix.fmtOfx : f === "qif" ? ix.fmtQif : f === "camt" ? ix.fmtCamt : ix.fmtCsv;
+    f === "ofx" ? ix.fmtOfx : f === "qif" ? ix.fmtQif : f === "camt" ? ix.fmtCamt : f === "pdf" ? ix.fmtPdf : ix.fmtCsv;
 
   const handleFile = useCallback(async (f: File) => {
     if (!selectedAccount) { setError(ix.selectAccountFirst); return; }
@@ -243,7 +243,7 @@ export default function ImportPage() {
               <input
                 ref={fileRef}
                 type="file"
-                accept=".csv,.txt,.tsv,.ofx,.qfx,.qif,.xml"
+                accept=".csv,.txt,.tsv,.ofx,.qfx,.qif,.xml,.pdf"
                 className="hidden"
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
               />

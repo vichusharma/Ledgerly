@@ -98,6 +98,27 @@ export const useCreateTransaction = () => {
   });
 };
 
+export const useLabels = () =>
+  useQuery({ queryKey: ["labels"], queryFn: () => apiClient.get("/labels").then(r => r.data) });
+
+export const useCreateLabel = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; color: string }) =>
+      apiClient.post("/labels", data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["labels"] }),
+  });
+};
+
+export const useSetTransactionLabels = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ txnId, labelIds }: { txnId: number; labelIds: number[] }) =>
+      apiClient.put(`/transactions/${txnId}/labels`, { label_ids: labelIds }).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["transactions"] }),
+  });
+};
+
 // ── Investments ───────────────────────────────────────────────────────────────
 
 export const useInstruments = () =>
