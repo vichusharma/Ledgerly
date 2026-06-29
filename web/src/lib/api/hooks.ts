@@ -59,6 +59,23 @@ export const useCreateAccount = () => {
   });
 };
 
+export const useUpdateAccount = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: number; [k: string]: unknown }) =>
+      apiClient.patch(`/accounts/${id}`, data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+};
+
+export const useArchiveAccount = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/accounts/${id}/archive`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+};
+
 // ── Transactions ──────────────────────────────────────────────────────────────
 
 export const useTransactions = (params: Record<string, unknown> = {}) =>

@@ -70,7 +70,7 @@ class AccountService:
         a = await self._account_repo.get_account(account_id)
         if a is None:
             return None
-        updates = body.model_dump(exclude_none=True)
+        updates = body.model_dump(exclude_unset=True)
         a = await self._account_repo.update_account(a, **updates)
         return AccountOut.model_validate(a)
 

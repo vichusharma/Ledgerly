@@ -66,8 +66,7 @@ class AccountRepository:
 
     async def update_account(self, account: Account, **kwargs: object) -> Account:
         for k, v in kwargs.items():
-            if v is not None:
-                setattr(account, k, v)
+            setattr(account, k, v)
         await self.session.flush()
         return account
 
