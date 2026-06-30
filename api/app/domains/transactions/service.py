@@ -1,17 +1,25 @@
 """Transactions service — categories, rules, CRUD."""
 from __future__ import annotations
 
+import datetime
 import re
+from collections import defaultdict
+from decimal import Decimal
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domains.transactions.merchant import normalize_merchant
 from app.domains.transactions.models import Category, CategoryRule, Label, Transaction
 from app.domains.transactions.schemas import (
+    AnalyticsOut,
+    CategoryBucket,
     CategoryCreateIn,
     CategoryOut,
     LabelCreateIn,
     LabelOut,
+    MerchantBucket,
+    MonthBucket,
     RuleCreateIn,
     RuleOut,
     TransactionCreateIn,
@@ -57,6 +65,109 @@ class TransactionService:
             txn.labels = []
         await self.session.flush()
         return TransactionOut.model_validate(txn)
+
+    # ── Analytics ─────────────────────────────────────────────────────────
+
+    def _analytics_filters(
+        self,
+        account_id: int | None,
+        from_date: str | None,
+        to_date: str | None,
+    ) -> list:
+        """Shared WHERE clauses for every analytics aggregate."""
+        clauses = [Transaction.parent_id.is_(None)]
+        if account_id:
+            clauses.append(Transaction.account_id == account_id)
+        if from_date:
+            clauses.append(Transaction.date >= datetime.date.fromisoformat(from_date))
+        if to_date:
+            clauses.append(Transaction.date <= datetime.date.fromisoformat(to_date))
+        return clauses
+
+    async def get_analytics(
+        self,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        account_id: int | None = None,
+        scope: str = "household",
+    ) -> AnalyticsOut:
+        where = self._analytics_filters(account_id, from_date, to_date)
+        spent_expr = func.sum(
+            func.coalesce(func.abs(func.least(Transaction.amount, 0)), 0)
+        )
+        income_expr = func.sum(func.greatest(Transaction.amount, 0))
+
+        # ── Totals ──
+        totals = (await self.session.execute(
+            select(spent_expr, income_expr, func.count()).where(*where)
+        )).one()
+        total_spent = Decimal(totals[0] or 0)
+        total_income = Decimal(totals[1] or 0)
+        txn_count = int(totals[2] or 0)
+
+        # ── By month ──
+        month_col = func.to_char(Transaction.date, "YYYY-MM")
+        month_rows = (await self.session.execute(
+            select(month_col.label("m"), spent_expr, income_expr)
+            .where(*where)
+            .group_by("m")
+            .order_by("m")
+        )).all()
+        by_month = [
+            MonthBucket(month=r[0], spent=Decimal(r[1] or 0), income=Decimal(r[2] or 0))
+            for r in month_rows
+        ]
+
+        # ── By category (debits only) ──
+        cat_rows = (await self.session.execute(
+            select(
+                Transaction.category_id,
+                Category.name,
+                Category.color,
+                spent_expr,
+            )
+            .select_from(Transaction)
+            .outerjoin(Category, Category.id == Transaction.category_id)
+            .where(*where, Transaction.amount < 0)
+            .group_by(Transaction.category_id, Category.name, Category.color)
+            .order_by(spent_expr.desc())
+        )).all()
+        by_category = [
+            CategoryBucket(
+                category_id=r[0],
+                name=r[1] or "Uncategorized",
+                color=r[2],
+                spent=Decimal(r[3] or 0),
+                pct=float(Decimal(r[3] or 0) / total_spent * 100) if total_spent else 0.0,
+            )
+            for r in cat_rows
+        ]
+
+        # ── Top merchants (group raw descriptions in SQL, normalize in Python) ──
+        desc_rows = (await self.session.execute(
+            select(Transaction.description, spent_expr, func.count())
+            .where(*where, Transaction.amount < 0)
+            .group_by(Transaction.description)
+        )).all()
+        merged: dict[str, dict] = defaultdict(lambda: {"spent": Decimal(0), "count": 0})
+        for desc, spent, count in desc_rows:
+            key = normalize_merchant(desc or "")
+            merged[key]["spent"] += Decimal(spent or 0)
+            merged[key]["count"] += int(count or 0)
+        top_merchants = [
+            MerchantBucket(merchant=k, spent=v["spent"], count=v["count"])
+            for k, v in sorted(merged.items(), key=lambda kv: kv[1]["spent"], reverse=True)
+        ][:10]
+
+        return AnalyticsOut(
+            total_spent=total_spent,
+            total_income=total_income,
+            net=total_income - total_spent,
+            txn_count=txn_count,
+            by_month=by_month,
+            by_category=by_category,
+            top_merchants=top_merchants,
+        )
 
     # ── Categories ────────────────────────────────────────────────────────
 
@@ -159,6 +270,7 @@ class TransactionService:
         )
         self.session.add(txn)
         await self.session.flush()
+        await self.session.refresh(txn, ["labels"])
         return TransactionOut.model_validate(txn)
 
     async def update_transaction(
@@ -171,6 +283,7 @@ class TransactionService:
         for k, v in updates.items():
             setattr(txn, k, v)
         await self.session.flush()
+        await self.session.refresh(txn, ["labels"])
         return TransactionOut.model_validate(txn)
 
     async def split_transaction(
@@ -209,6 +322,8 @@ class TransactionService:
             splits.append(child)
 
         await self.session.flush()
+        for s in splits:
+            await self.session.refresh(s, ["labels"])
         return [TransactionOut.model_validate(s) for s in splits]
 
     async def delete_transaction(self, txn_id: int) -> None:

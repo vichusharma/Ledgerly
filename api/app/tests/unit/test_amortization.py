@@ -37,12 +37,12 @@ def test_first_payment_golden():
     )
     r0 = rows[0]
     # Monthly rate = 1.85% / 12 = 0.154167%
-    # EMI ≈ 1387.93 EUR  (Excel PMT confirmation)
-    assert abs(float(r0.payment) - 1387.93) < 0.10, f"EMI={r0.payment}"
-    # First interest = 280000 * 0.0185 / 12 ≈ 430.83
-    assert abs(float(r0.interest) - 430.83) < 0.10, f"interest={r0.interest}"
-    # First principal ≈ 957.10
-    assert abs(float(r0.principal) - 957.10) < 0.10, f"principal={r0.principal}"
+    # EMI = P * r / (1 - (1+r)^-n) ≈ 1396.67 EUR
+    assert abs(float(r0.payment) - 1396.67) < 0.10, f"EMI={r0.payment}"
+    # First interest = 280000 * 0.0185 / 12 ≈ 431.67
+    assert abs(float(r0.interest) - 431.67) < 0.10, f"interest={r0.interest}"
+    # First principal ≈ 965.00
+    assert abs(float(r0.principal) - 965.00) < 0.10, f"principal={r0.principal}"
 
 
 def test_balance_reaches_zero():

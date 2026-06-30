@@ -67,7 +67,7 @@ async def auth_status(db: AsyncSession = Depends(get_db)) -> dict[str, bool]:
     return {"initialized": await repo.get_household() is not None}
 
 
-@router.post("/auth/setup")
+@router.post("/auth/setup", status_code=201)
 async def setup_household(
     body: LoginIn,
     db: AsyncSession = Depends(get_db),

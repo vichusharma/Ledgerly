@@ -22,11 +22,7 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
-    command: >
-      sh -c "
-        until pg_isready -h db-test -U ledgerly -d ledgerly_test; do sleep 1; done &&
-        pytest app/tests/ -v --tb=short
-      "
+    command: ["pytest", "app/tests/", "-v", "--tb=short"]
     environment:
       TEST_DATABASE_URL: postgresql+asyncpg://ledgerly:test@db-test/ledgerly_test
       ENVIRONMENT: test

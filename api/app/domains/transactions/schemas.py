@@ -92,3 +92,35 @@ class TransactionOut(BaseModel):
     parent_id: int | None
     import_batch_id: int | None
     labels: list[LabelOut] = []
+
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+class MonthBucket(BaseModel):
+    month: str            # "YYYY-MM"
+    spent: Decimal        # positive magnitude of debits
+    income: Decimal       # positive magnitude of credits
+
+
+class CategoryBucket(BaseModel):
+    category_id: int | None
+    name: str
+    color: str | None
+    spent: Decimal
+    pct: float            # share of total spent, 0–100
+
+
+class MerchantBucket(BaseModel):
+    merchant: str
+    spent: Decimal
+    count: int
+
+
+class AnalyticsOut(BaseModel):
+    total_spent: Decimal
+    total_income: Decimal
+    net: Decimal
+    txn_count: int
+    by_month: list[MonthBucket] = []
+    by_category: list[CategoryBucket] = []
+    top_merchants: list[MerchantBucket] = []

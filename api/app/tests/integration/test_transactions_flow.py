@@ -67,8 +67,8 @@ async def test_csv_import_dedup(client: AsyncClient) -> None:
     )
     assert res1.status_code == 201
     batch1 = res1.json()
-    assert batch1["imported"] == 3
-    assert batch1["duplicates"] == 0
+    assert batch1["row_count"] == 3
+    assert batch1["duplicate_count"] == 0
 
     # Second import — all duplicates
     res2 = await client.post(
@@ -78,8 +78,8 @@ async def test_csv_import_dedup(client: AsyncClient) -> None:
     )
     assert res2.status_code == 201
     batch2 = res2.json()
-    assert batch2["imported"] == 0
-    assert batch2["duplicates"] == 3
+    assert batch2["row_count"] == 0
+    assert batch2["duplicate_count"] == 3
 
 
 async def test_rollback_batch(client: AsyncClient) -> None:
@@ -101,7 +101,7 @@ async def test_rollback_batch(client: AsyncClient) -> None:
     )).json()
 
     # Rollback
-    res = await client.delete(f"/api/v1/imports/{batch['batch_id']}")
+    res = await client.delete(f"/api/v1/imports/{batch['id']}")
     assert res.status_code in (200, 204)
 
     # Transactions should be gone

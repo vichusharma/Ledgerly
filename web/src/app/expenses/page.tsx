@@ -1,14 +1,31 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo, Fragment } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
-  useTransactions, useCategories,
+  useTransactions, useCategories, useTransactionAnalytics,
   useLabels, useCreateLabel, useSetTransactionLabels,
 } from "@/lib/api/hooks";
 import { useLanguage } from "@/lib/context/LanguageContext";
-import { formatMoney, formatDate } from "@/lib/format/money";
-import { Tag, Plus, X, Check } from "lucide-react";
+import { formatMoney, formatDate, formatPct } from "@/lib/format/money";
+import { KpiCard } from "@/components/finance/KpiCard";
+import { SpendingTrendChart } from "@/components/charts/SpendingTrendChart";
+import { CategoryDonutChart } from "@/components/charts/CategoryDonutChart";
+import { Tag, Plus, X, Check, ChevronDown, Store } from "lucide-react";
+
+// ── Period helpers ────────────────────────────────────────────────────────────
+
+type Period = "month" | "3m" | "year" | "all";
+
+function periodRange(p: Period): { from_date?: string; to_date?: string } {
+  const today = new Date();
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const to_date = iso(today);
+  if (p === "all") return {};
+  if (p === "month") return { from_date: iso(new Date(today.getFullYear(), today.getMonth(), 1)), to_date };
+  if (p === "year") return { from_date: iso(new Date(today.getFullYear(), 0, 1)), to_date };
+  return { from_date: iso(new Date(today.getFullYear(), today.getMonth() - 2, 1)), to_date };
+}
 
 // ── Label types ───────────────────────────────────────────────────────────────
 
@@ -164,14 +181,20 @@ function LabelEditorRow({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ExpensesPage() {
-  const [filter, setFilter] = useState("");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-
-  const { data: txns = [], isLoading } = useTransactions();
-  const { data: categories = [] } = useCategories();
-  const { data: allLabels = [] } = useLabels();
   const { t } = useLanguage();
   const dx = t("expenses");
+
+  const [period, setPeriod] = useState<Period>("3m");
+  const [filter, setFilter] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [showList, setShowList] = useState(false);
+
+  const range = useMemo(() => periodRange(period), [period]);
+
+  const { data: analytics } = useTransactionAnalytics(range);
+  const { data: txns = [], isLoading } = useTransactions({ ...range, limit: 500 });
+  const { data: categories = [] } = useCategories();
+  const { data: allLabels = [] } = useLabels();
 
   const catMap = new Map<unknown, { id: unknown; name: string }>(categories.map((c: any) => [c.id, c]));
 
@@ -179,131 +202,216 @@ export default function ExpensesPage() {
     tx.description.toLowerCase().includes(filter.toLowerCase())
   );
 
-  const totalExpenses = filtered
-    .filter((tx: any) => tx.amount < 0)
-    .reduce((sum: number, tx: any) => sum + Math.abs(parseFloat(tx.amount)), 0);
-
-  const totalIncome = filtered
-    .filter((tx: any) => tx.amount > 0)
-    .reduce((sum: number, tx: any) => sum + parseFloat(tx.amount), 0);
-
   const toggleExpand = useCallback((id: number) => {
     setExpandedId(prev => prev === id ? null : id);
   }, []);
 
   const COL_COUNT = 5;
 
+  // ── Derived analytics for display ──
+  const totalSpent = Number(analytics?.total_spent ?? 0);
+  const totalIncome = Number(analytics?.total_income ?? 0);
+  const net = Number(analytics?.net ?? 0);
+  const txnCount = analytics?.txn_count ?? 0;
+  const byMonth = (analytics?.by_month ?? []).map((m: any) => ({
+    month: m.month, spent: Number(m.spent), income: Number(m.income),
+  }));
+  const byCategory = (analytics?.by_category ?? []).map((c: any) => ({
+    ...c,
+    name: c.name === "Uncategorized" ? dx.uncategorized : c.name,
+    spent: Number(c.spent),
+    pct: Number(c.pct),
+  }));
+  const topMerchants = (analytics?.top_merchants ?? []).map((m: any) => ({
+    merchant: m.merchant, spent: Number(m.spent), count: m.count,
+  }));
+  const topCat = byCategory[0];
+  const avgTxn = txnCount > 0 ? totalSpent / txnCount : 0;
+  const maxMerchant = topMerchants[0]?.spent || 1;
+
+  const PERIODS: { key: Period; label: string }[] = [
+    { key: "month", label: dx.periodMonth },
+    { key: "3m", label: dx.period3m },
+    { key: "year", label: dx.periodYear },
+    { key: "all", label: dx.periodAll },
+  ];
+
   return (
     <AppShell>
       <div className="p-6 max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-foreground">
-            {dx.title} &amp; {dx.income}
-          </h1>
-          <div className="flex gap-4 text-sm">
-            <div className="text-right">
-              <p className="text-slate-400 dark:text-muted-foreground text-xs">{dx.title}</p>
-              <p className="font-semibold money text-danger">{formatMoney(totalExpenses)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-slate-400 dark:text-muted-foreground text-xs">{dx.income}</p>
-              <p className="font-semibold money text-success">{formatMoney(totalIncome)}</p>
+        {/* Header + period selector */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-foreground">{dx.title}</h1>
+          <div className="inline-flex rounded-lg border border-surface-border dark:border-border overflow-hidden text-sm">
+            {PERIODS.map((p, i) => (
+              <button
+                key={p.key}
+                onClick={() => setPeriod(p.key)}
+                className={`px-3 py-1.5 ${i > 0 ? "border-l border-surface-border dark:border-border" : ""} ${
+                  period === p.key
+                    ? "bg-brand/10 text-brand font-medium"
+                    : "text-slate-500 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-secondary"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* KPI row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard title={dx.totalSpent} value={formatMoney(totalSpent)} subtitle={`${formatMoney(avgTxn)} ${dx.avgTxn}`} />
+          <KpiCard
+            title={dx.net}
+            value={formatMoney(net)}
+            trend={net >= 0 ? 1 : -1}
+            subtitle={`${dx.income}: ${formatMoney(totalIncome)}`}
+          />
+          <KpiCard
+            title={dx.topCategory}
+            value={topCat ? formatMoney(topCat.spent) : "—"}
+            subtitle={topCat ? `${topCat.name} · ${formatPct(topCat.pct)}` : ""}
+          />
+          <KpiCard title={dx.txnCount} value={String(txnCount)} />
+        </div>
+
+        {/* Monthly trend */}
+        {byMonth.length > 0 && <SpendingTrendChart data={byMonth} title={dx.byMonth} />}
+
+        {/* Category donut + top merchants */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {byCategory.length > 0 && <CategoryDonutChart data={byCategory} title={dx.byCategory} />}
+
+          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground mb-4 flex items-center gap-1.5">
+              <Store size={14} /> {dx.topMerchants}
+            </h3>
+            <div className="space-y-3">
+              {topMerchants.map((m: any) => (
+                <div key={m.merchant}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-slate-700 dark:text-foreground truncate">{m.merchant}</span>
+                    <span className="money text-slate-500 dark:text-muted-foreground whitespace-nowrap ml-2">{formatMoney(m.spent)}</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 dark:bg-secondary rounded-full">
+                    <div className="h-1.5 bg-brand rounded-full" style={{ width: `${Math.round((m.spent / maxMerchant) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+              {topMerchants.length === 0 && (
+                <p className="text-sm text-slate-400 dark:text-muted-foreground">{dx.noTransactions}</p>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <input
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder={dx.searchPlaceholder}
-            className="w-full pl-4 pr-4 py-2.5 rounded-xl border border-surface-border dark:border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 bg-white dark:bg-secondary dark:text-foreground dark:placeholder:text-muted-foreground"
-          />
-        </div>
-
-        {/* Transaction list */}
+        {/* Collapsible transaction list */}
         <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-slate-400 dark:text-muted-foreground border-b border-surface-border dark:border-border bg-slate-50 dark:bg-secondary">
-                  {[dx.date, dx.description, dx.category, dx.labels, dx.amount].map(h => (
-                    <th key={h} className="px-4 py-3 text-left font-medium last:text-right">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.slice(0, 200).map((tx: any) => {
-                  const cat = catMap.get(tx.category_id);
-                  const txLabels: Label[] = tx.labels || [];
-                  const isExpanded = expandedId === tx.id;
+          <button
+            onClick={() => setShowList((s) => !s)}
+            aria-expanded={showList}
+            className="w-full flex items-center justify-between px-5 py-3.5 text-sm text-slate-700 dark:text-foreground hover:bg-slate-50 dark:hover:bg-secondary"
+          >
+            <span className="flex items-center gap-2 font-medium">
+              {dx.allTransactions}
+              <span className="text-slate-400 dark:text-muted-foreground font-normal">({txns.length})</span>
+            </span>
+            <ChevronDown size={16} className={`text-slate-400 transition-transform ${showList ? "rotate-180" : ""}`} />
+          </button>
 
-                  return (
-                    <>
-                      <tr
-                        key={tx.id}
-                        onClick={() => toggleExpand(tx.id)}
-                        className={`border-b border-slate-50 dark:border-border cursor-pointer select-none transition-colors ${
-                          isExpanded
-                            ? "bg-slate-50 dark:bg-secondary"
-                            : "hover:bg-slate-50 dark:hover:bg-secondary"
-                        }`}
-                      >
-                        <td className="px-4 py-2.5 money text-slate-400 dark:text-muted-foreground text-xs whitespace-nowrap">
-                          {formatDate(tx.date)}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-700 dark:text-foreground max-w-xs truncate">
-                          {tx.description || "—"}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          {cat ? (
-                            <span className="text-xs bg-slate-100 dark:bg-secondary text-slate-600 dark:text-muted-foreground px-2 py-0.5 rounded-full">
-                              {cat.name}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-slate-300 dark:text-muted-foreground">—</span>
+          {showList && (
+            <div className="border-t border-surface-border dark:border-border">
+              {/* Search */}
+              <div className="p-4">
+                <input
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder={dx.searchPlaceholder}
+                  className="w-full pl-4 pr-4 py-2 rounded-lg border border-surface-border dark:border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 bg-white dark:bg-secondary dark:text-foreground dark:placeholder:text-muted-foreground"
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-slate-400 dark:text-muted-foreground border-b border-surface-border dark:border-border bg-slate-50 dark:bg-secondary">
+                      {[dx.date, dx.description, dx.category, dx.labels, dx.amount].map(h => (
+                        <th key={h} className="px-4 py-3 text-left font-medium last:text-right">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.slice(0, 200).map((tx: any) => {
+                      const cat = catMap.get(tx.category_id);
+                      const txLabels: Label[] = tx.labels || [];
+                      const isExpanded = expandedId === tx.id;
+
+                      return (
+                        <Fragment key={tx.id}>
+                          <tr
+                            onClick={() => toggleExpand(tx.id)}
+                            className={`border-b border-slate-50 dark:border-border cursor-pointer select-none transition-colors ${
+                              isExpanded
+                                ? "bg-slate-50 dark:bg-secondary"
+                                : "hover:bg-slate-50 dark:hover:bg-secondary"
+                            }`}
+                          >
+                            <td className="px-4 py-2.5 money text-slate-400 dark:text-muted-foreground text-xs whitespace-nowrap">
+                              {formatDate(tx.date)}
+                            </td>
+                            <td className="px-4 py-2.5 text-slate-700 dark:text-foreground max-w-xs truncate">
+                              {tx.description || "—"}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              {cat ? (
+                                <span className="text-xs bg-slate-100 dark:bg-secondary text-slate-600 dark:text-muted-foreground px-2 py-0.5 rounded-full">
+                                  {cat.name}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-300 dark:text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex flex-wrap gap-1 items-center min-h-[1.25rem]">
+                                {txLabels.map((lb) => (
+                                  <LabelChip key={lb.id} label={lb} />
+                                ))}
+                                {txLabels.length === 0 && (
+                                  <span className="inline-flex items-center gap-1 text-xs text-slate-300 dark:text-muted-foreground">
+                                    <Tag size={11} />
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className={`px-4 py-2.5 money text-right font-medium ${
+                              parseFloat(tx.amount) < 0 ? "text-danger" : "text-success"
+                            }`}>
+                              {formatMoney(tx.amount)}
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <LabelEditorRow
+                              tx={tx}
+                              allLabels={allLabels}
+                              colSpan={COL_COUNT}
+                              onClose={() => setExpandedId(null)}
+                            />
                           )}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex flex-wrap gap-1 items-center min-h-[1.25rem]">
-                            {txLabels.map((lb) => (
-                              <LabelChip key={lb.id} label={lb} />
-                            ))}
-                            {txLabels.length === 0 && (
-                              <span className="inline-flex items-center gap-1 text-xs text-slate-300 dark:text-muted-foreground">
-                                <Tag size={11} />
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className={`px-4 py-2.5 money text-right font-medium ${
-                          parseFloat(tx.amount) < 0 ? "text-danger" : "text-success"
-                        }`}>
-                          {formatMoney(tx.amount)}
+                        </Fragment>
+                      );
+                    })}
+                    {filtered.length === 0 && !isLoading && (
+                      <tr>
+                        <td colSpan={COL_COUNT} className="px-4 py-8 text-center text-slate-400 dark:text-muted-foreground">
+                          {dx.noTransactions}
                         </td>
                       </tr>
-                      {isExpanded && (
-                        <LabelEditorRow
-                          tx={tx}
-                          allLabels={allLabels}
-                          colSpan={COL_COUNT}
-                          onClose={() => setExpandedId(null)}
-                        />
-                      )}
-                    </>
-                  );
-                })}
-                {filtered.length === 0 && !isLoading && (
-                  <tr>
-                    <td colSpan={COL_COUNT} className="px-4 py-8 text-center text-slate-400 dark:text-muted-foreground">
-                      {dx.noTransactions}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </AppShell>

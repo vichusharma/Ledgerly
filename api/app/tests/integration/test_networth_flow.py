@@ -19,7 +19,7 @@ async def test_networth_empty(client: AsyncClient) -> None:
     res = await client.get("/api/v1/networth")
     assert res.status_code == 200
     data = res.json()
-    assert "total" in data
+    assert "current" in data
 
 
 async def test_manual_snapshot(client: AsyncClient) -> None:

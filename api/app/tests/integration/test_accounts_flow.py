@@ -54,7 +54,7 @@ async def test_archive_account(client: AsyncClient) -> None:
     acct = (await client.post("/api/v1/accounts", json={
         "name": "Old savings", "type": "savings", "owner_id": person["id"],
     })).json()
-    res = await client.patch(f"/api/v1/accounts/{acct['id']}/archive")
+    res = await client.delete(f"/api/v1/accounts/{acct['id']}/archive")
     assert res.status_code in (200, 204)
     # Archived accounts should not appear in the default list
     listing = await client.get("/api/v1/accounts")

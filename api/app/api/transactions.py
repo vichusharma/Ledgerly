@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.domains.transactions.schemas import (
+    AnalyticsOut,
     CategoryCreateIn,
     CategoryOut,
     LabelCreateIn,
@@ -95,6 +96,19 @@ async def list_transactions(
         category_id=category_id,
         limit=limit,
         offset=offset,
+    )
+
+
+@router.get("/transactions/analytics", response_model=AnalyticsOut)
+async def transaction_analytics(
+    from_date: str | None = Query(default=None),
+    to_date: str | None = Query(default=None),
+    account_id: int | None = Query(default=None),
+    scope: str = "household",
+    db: AsyncSession = Depends(get_db),
+) -> AnalyticsOut:
+    return await TransactionService(db).get_analytics(
+        from_date=from_date, to_date=to_date, account_id=account_id, scope=scope
     )
 
 

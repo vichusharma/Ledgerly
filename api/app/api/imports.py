@@ -34,7 +34,7 @@ async def preview_statement(
     return await ImportService(db).preview_statement(content, file.filename, account_id)
 
 
-@router.post("/imports/csv", response_model=ImportBatchOut)
+@router.post("/imports/csv", response_model=ImportBatchOut, status_code=201)
 async def import_statement(
     file: UploadFile = File(...),
     account_id: int = Form(...),

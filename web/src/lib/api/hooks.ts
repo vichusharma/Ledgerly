@@ -84,6 +84,12 @@ export const useTransactions = (params: Record<string, unknown> = {}) =>
     queryFn: () => apiClient.get("/transactions", { params }).then(r => r.data),
   });
 
+export const useTransactionAnalytics = (params: Record<string, unknown> = {}) =>
+  useQuery({
+    queryKey: ["analytics", params],
+    queryFn: () => apiClient.get("/transactions/analytics", { params }).then(r => r.data),
+  });
+
 export const useCategories = () =>
   useQuery({ queryKey: ["categories"], queryFn: () => apiClient.get("/categories").then(r => r.data) });
 
