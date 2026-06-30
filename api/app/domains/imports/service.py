@@ -274,6 +274,7 @@ class ImportService:
 
         txn_service = TransactionService(self.session)
         rules = await txn_service._get_rules()
+        label_rules = await txn_service._get_label_rules()
         imported = 0
         dupes = 0
 
@@ -283,6 +284,7 @@ class ImportService:
                     account_id, raw.date, raw.amount, raw.description
                 )
                 category_id = txn_service._auto_categorize(raw.description, rules)
+                label_ids = txn_service._auto_label(raw.description, label_rules)
                 txn = Transaction(
                     account_id=account_id,
                     import_batch_id=batch.id,
@@ -292,6 +294,8 @@ class ImportService:
                     category_id=category_id,
                     dedup_hash=dedup_hash,
                 )
+                if label_ids:
+                    txn.labels = txn_service._labels_from_rules(label_ids, label_rules)
                 # Savepoint per row so a duplicate doesn't roll back the whole session.
                 async with self.session.begin_nested():
                     self.session.add(txn)

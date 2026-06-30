@@ -61,3 +61,23 @@ async def test_analytics_aggregates(client: AsyncClient) -> None:
     # Date filter narrows to June only
     res2 = await client.get("/api/v1/transactions/analytics?from_date=2026-06-01")
     assert float(res2.json()["total_spent"]) == 90.00
+
+
+async def test_analytics_by_label(client: AsyncClient) -> None:
+    acct = await _setup(client)
+    aid = acct["id"]
+
+    await client.post("/api/v1/labels/bulk", json={"labels": [
+        {"name": "Groceries", "color": "#22c55e", "patterns": ["CARREFOUR"]},
+    ]})
+
+    await _add(client, aid, "2026-05-03", "CB CARREFOUR MARKET 03/05 PARIS", "-40.00")
+    await _add(client, aid, "2026-05-18", "CB CARREFOUR 18/05 LYON", "-60.00")
+    await _add(client, aid, "2026-06-10", "PRLV TOTAL ENERGIE", "-90.00")  # no label match
+
+    res = await client.get("/api/v1/transactions/analytics")
+    data = res.json()
+    by_label = {b["name"]: b for b in data["by_label"]}
+
+    assert float(by_label["Groceries"]["spent"]) == 100.00
+    assert float(by_label["Unlabeled"]["spent"]) == 90.00

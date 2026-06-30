@@ -3,14 +3,14 @@
 import { useState, useRef, useCallback, useMemo, Fragment } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
-  useTransactions, useCategories, useTransactionAnalytics,
+  useTransactions, useTransactionAnalytics,
   useLabels, useCreateLabel, useSetTransactionLabels,
 } from "@/lib/api/hooks";
 import { useLanguage } from "@/lib/context/LanguageContext";
-import { formatMoney, formatDate, formatPct } from "@/lib/format/money";
+import { formatMoney, formatDate } from "@/lib/format/money";
 import { KpiCard } from "@/components/finance/KpiCard";
 import { SpendingTrendChart } from "@/components/charts/SpendingTrendChart";
-import { CategoryDonutChart } from "@/components/charts/CategoryDonutChart";
+import { LabelDonutChart } from "@/components/charts/LabelDonutChart";
 import { Tag, Plus, X, Check, ChevronDown, Store } from "lucide-react";
 
 // ── Period helpers ────────────────────────────────────────────────────────────
@@ -193,10 +193,7 @@ export default function ExpensesPage() {
 
   const { data: analytics } = useTransactionAnalytics(range);
   const { data: txns = [], isLoading } = useTransactions({ ...range, limit: 500 });
-  const { data: categories = [] } = useCategories();
   const { data: allLabels = [] } = useLabels();
-
-  const catMap = new Map<unknown, { id: unknown; name: string }>(categories.map((c: any) => [c.id, c]));
 
   const filtered = txns.filter((tx: any) =>
     tx.description.toLowerCase().includes(filter.toLowerCase())
@@ -206,7 +203,7 @@ export default function ExpensesPage() {
     setExpandedId(prev => prev === id ? null : id);
   }, []);
 
-  const COL_COUNT = 5;
+  const COL_COUNT = 4;
 
   // ── Derived analytics for display ──
   const totalSpent = Number(analytics?.total_spent ?? 0);
@@ -216,16 +213,16 @@ export default function ExpensesPage() {
   const byMonth = (analytics?.by_month ?? []).map((m: any) => ({
     month: m.month, spent: Number(m.spent), income: Number(m.income),
   }));
-  const byCategory = (analytics?.by_category ?? []).map((c: any) => ({
-    ...c,
-    name: c.name === "Uncategorized" ? dx.uncategorized : c.name,
-    spent: Number(c.spent),
-    pct: Number(c.pct),
+  const byLabel = (analytics?.by_label ?? []).map((l: any) => ({
+    ...l,
+    name: l.name === "Unlabeled" ? dx.unlabeled : l.name,
+    spent: Number(l.spent),
+    pct: Number(l.pct),
   }));
   const topMerchants = (analytics?.top_merchants ?? []).map((m: any) => ({
     merchant: m.merchant, spent: Number(m.spent), count: m.count,
   }));
-  const topCat = byCategory[0];
+  const topMerchant = topMerchants[0];
   const avgTxn = txnCount > 0 ? totalSpent / txnCount : 0;
   const maxMerchant = topMerchants[0]?.spent || 1;
 
@@ -269,9 +266,9 @@ export default function ExpensesPage() {
             subtitle={`${dx.income}: ${formatMoney(totalIncome)}`}
           />
           <KpiCard
-            title={dx.topCategory}
-            value={topCat ? formatMoney(topCat.spent) : "—"}
-            subtitle={topCat ? `${topCat.name} · ${formatPct(topCat.pct)}` : ""}
+            title={dx.topMerchant}
+            value={topMerchant ? formatMoney(topMerchant.spent) : "—"}
+            subtitle={topMerchant ? topMerchant.merchant : ""}
           />
           <KpiCard title={dx.txnCount} value={String(txnCount)} />
         </div>
@@ -279,9 +276,9 @@ export default function ExpensesPage() {
         {/* Monthly trend */}
         {byMonth.length > 0 && <SpendingTrendChart data={byMonth} title={dx.byMonth} />}
 
-        {/* Category donut + top merchants */}
+        {/* Label donut + top merchants */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {byCategory.length > 0 && <CategoryDonutChart data={byCategory} title={dx.byCategory} />}
+          {byLabel.length > 0 && <LabelDonutChart data={byLabel} title={dx.byLabel} />}
 
           <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground mb-4 flex items-center gap-1.5">
@@ -335,14 +332,13 @@ export default function ExpensesPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-slate-400 dark:text-muted-foreground border-b border-surface-border dark:border-border bg-slate-50 dark:bg-secondary">
-                      {[dx.date, dx.description, dx.category, dx.labels, dx.amount].map(h => (
+                      {[dx.date, dx.description, dx.labels, dx.amount].map(h => (
                         <th key={h} className="px-4 py-3 text-left font-medium last:text-right">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.slice(0, 200).map((tx: any) => {
-                      const cat = catMap.get(tx.category_id);
                       const txLabels: Label[] = tx.labels || [];
                       const isExpanded = expandedId === tx.id;
 
@@ -361,15 +357,6 @@ export default function ExpensesPage() {
                             </td>
                             <td className="px-4 py-2.5 text-slate-700 dark:text-foreground max-w-xs truncate">
                               {tx.description || "—"}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              {cat ? (
-                                <span className="text-xs bg-slate-100 dark:bg-secondary text-slate-600 dark:text-muted-foreground px-2 py-0.5 rounded-full">
-                                  {cat.name}
-                                </span>
-                              ) : (
-                                <span className="text-xs text-slate-300 dark:text-muted-foreground">—</span>
-                              )}
                             </td>
                             <td className="px-4 py-2.5">
                               <div className="flex flex-wrap gap-1 items-center min-h-[1.25rem]">

@@ -53,6 +53,35 @@ class RuleOut(BaseModel):
     priority: int
 
 
+class LabelUpdateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=50)
+    color: str | None = None
+
+
+class LabelRuleCreateIn(BaseModel):
+    pattern: str = Field(min_length=1, max_length=500, description="Python regex pattern")
+    label_id: int
+    priority: int = 0
+
+
+class LabelRuleOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: int
+    pattern: str
+    label_id: int
+    priority: int
+
+
+class LabelWithRuleIn(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    color: str = "#94a3b8"
+    patterns: list[str] = []
+
+
+class BulkLabelsIn(BaseModel):
+    labels: list[LabelWithRuleIn]
+
+
 class TransactionCreateIn(BaseModel):
     account_id: int
     date: datetime.date
@@ -110,10 +139,24 @@ class CategoryBucket(BaseModel):
     pct: float            # share of total spent, 0–100
 
 
+class LabelBucket(BaseModel):
+    label_id: int | None
+    name: str
+    color: str | None
+    spent: Decimal
+    pct: float            # share of total spent, 0–100 (labels overlap, so totals may exceed 100)
+
+
 class MerchantBucket(BaseModel):
     merchant: str
     spent: Decimal
     count: int
+
+
+class RerunRulesOut(BaseModel):
+    scanned: int
+    categorized: int
+    labeled: int
 
 
 class AnalyticsOut(BaseModel):
@@ -123,4 +166,5 @@ class AnalyticsOut(BaseModel):
     txn_count: int
     by_month: list[MonthBucket] = []
     by_category: list[CategoryBucket] = []
+    by_label: list[LabelBucket] = []
     top_merchants: list[MerchantBucket] = []

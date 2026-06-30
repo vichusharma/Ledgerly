@@ -8,6 +8,7 @@ import { useTheme } from "@/lib/context/ThemeContext";
 import { apiClient } from "@/lib/api/client";
 import { Sun, Moon, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LabelManager } from "@/components/settings/LabelManager";
 
 export default function SettingsPage() {
   const { data: persons = [], refetch } = usePersons();
@@ -155,6 +156,11 @@ export default function SettingsPage() {
             </button>
           </div>
           {msg && <p className="text-xs text-slate-400 dark:text-muted-foreground">{msg}</p>}
+        </section>
+
+        {/* Labels & rules */}
+        <section className={sectionClass}>
+          <LabelManager />
         </section>
 
         {/* Data & privacy */}

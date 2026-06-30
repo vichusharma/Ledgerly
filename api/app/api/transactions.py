@@ -7,10 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, get_db
 from app.domains.transactions.schemas import (
     AnalyticsOut,
+    BulkLabelsIn,
     CategoryCreateIn,
     CategoryOut,
     LabelCreateIn,
     LabelOut,
+    LabelRuleCreateIn,
+    LabelRuleOut,
+    LabelUpdateIn,
+    RerunRulesOut,
     RuleCreateIn,
     RuleOut,
     TransactionCreateIn,
@@ -36,9 +41,49 @@ async def create_label(body: LabelCreateIn, db: AsyncSession = Depends(get_db)) 
     return await TransactionService(db).create_label(body)
 
 
+@router.post("/labels/bulk", response_model=list[LabelOut])
+async def bulk_labels(body: BulkLabelsIn, db: AsyncSession = Depends(get_db)) -> list[LabelOut]:
+    try:
+        return await TransactionService(db).bulk_upsert_labels(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.patch("/labels/{label_id}", response_model=LabelOut)
+async def update_label(
+    label_id: int, body: LabelUpdateIn, db: AsyncSession = Depends(get_db)
+) -> LabelOut:
+    obj = await TransactionService(db).update_label(label_id, body)
+    if obj is None:
+        raise HTTPException(status_code=404, detail="Label not found")
+    return obj
+
+
 @router.delete("/labels/{label_id}", status_code=204)
 async def delete_label(label_id: int, db: AsyncSession = Depends(get_db)) -> None:
     await TransactionService(db).delete_label(label_id)
+
+
+# ── Label rules ───────────────────────────────────────────────────────────────
+
+@router.get("/label-rules", response_model=list[LabelRuleOut])
+async def list_label_rules(db: AsyncSession = Depends(get_db)) -> list[LabelRuleOut]:
+    return await TransactionService(db).list_label_rules()
+
+
+@router.post("/label-rules", response_model=LabelRuleOut, status_code=201)
+async def create_label_rule(
+    body: LabelRuleCreateIn, db: AsyncSession = Depends(get_db)
+) -> LabelRuleOut:
+    try:
+        return await TransactionService(db).create_label_rule(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/label-rules/{rule_id}", status_code=204)
+async def delete_label_rule(rule_id: int, db: AsyncSession = Depends(get_db)) -> None:
+    await TransactionService(db).delete_label_rule(rule_id)
 
 
 # ── Categories ────────────────────────────────────────────────────────────────
@@ -117,6 +162,16 @@ async def create_transaction(
     body: TransactionCreateIn, db: AsyncSession = Depends(get_db)
 ) -> TransactionOut:
     return await TransactionService(db).create_transaction(body)
+
+
+@router.post("/transactions/rerun-rules", response_model=RerunRulesOut)
+async def rerun_rules(db: AsyncSession = Depends(get_db)) -> RerunRulesOut:
+    """Re-apply category + label rules to every existing transaction.
+
+    Fills blank categories and adds matching labels without touching
+    transactions the user has already edited by hand.
+    """
+    return await TransactionService(db).rerun_rules()
 
 
 @router.patch("/transactions/{txn_id}", response_model=TransactionOut)

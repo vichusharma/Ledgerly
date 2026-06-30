@@ -125,6 +125,69 @@ export const useSetTransactionLabels = () => {
   });
 };
 
+export const useUpdateLabel = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: number; name?: string; color?: string }) =>
+      apiClient.patch(`/labels/${id}`, data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["labels"] }),
+  });
+};
+
+export const useDeleteLabel = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/labels/${id}`).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["labels"] });
+      qc.invalidateQueries({ queryKey: ["label-rules"] });
+    },
+  });
+};
+
+export const useLabelRules = () =>
+  useQuery({ queryKey: ["label-rules"], queryFn: () => apiClient.get("/label-rules").then(r => r.data) });
+
+export const useCreateLabelRule = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { pattern: string; label_id: number; priority?: number }) =>
+      apiClient.post("/label-rules", data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["label-rules"] }),
+  });
+};
+
+export const useDeleteLabelRule = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/label-rules/${id}`).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["label-rules"] }),
+  });
+};
+
+export const useBulkLabels = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (labels: { name: string; color: string; patterns: string[] }[]) =>
+      apiClient.post("/labels/bulk", { labels }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["labels"] });
+      qc.invalidateQueries({ queryKey: ["label-rules"] });
+    },
+  });
+};
+
+export const useRerunRules = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.post("/transactions/rerun-rules").then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+};
+
 // ── Investments ───────────────────────────────────────────────────────────────
 
 export const useInstruments = () =>

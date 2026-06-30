@@ -71,6 +71,19 @@ class CategoryRule(Base):
     category: Mapped[Category] = relationship("Category")
 
 
+class LabelRule(Base):
+    __tablename__ = "label_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pattern: Mapped[str] = mapped_column(String(500), nullable=False)  # regex
+    label_id: Mapped[int] = mapped_column(
+        ForeignKey("labels.id", ondelete="CASCADE"), nullable=False
+    )
+    priority: Mapped[int] = mapped_column(Integer, default=0)
+
+    label: Mapped[Label] = relationship("Label")
+
+
 class ImportBatch(Base):
     __tablename__ = "import_batches"
 

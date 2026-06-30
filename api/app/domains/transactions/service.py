@@ -10,16 +10,29 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.transactions.merchant import normalize_merchant
-from app.domains.transactions.models import Category, CategoryRule, Label, Transaction
+from app.domains.transactions.models import (
+    Category,
+    CategoryRule,
+    Label,
+    LabelRule,
+    Transaction,
+    transaction_labels,
+)
 from app.domains.transactions.schemas import (
     AnalyticsOut,
+    BulkLabelsIn,
     CategoryBucket,
     CategoryCreateIn,
     CategoryOut,
+    LabelBucket,
     LabelCreateIn,
     LabelOut,
+    LabelRuleCreateIn,
+    LabelRuleOut,
+    LabelUpdateIn,
     MerchantBucket,
     MonthBucket,
+    RerunRulesOut,
     RuleCreateIn,
     RuleOut,
     TransactionCreateIn,
@@ -45,10 +58,114 @@ class TransactionService:
         await self.session.flush()
         return LabelOut.model_validate(lb)
 
+    async def update_label(self, label_id: int, body: LabelUpdateIn) -> LabelOut | None:
+        lb = await self.session.get(Label, label_id)
+        if lb is None:
+            return None
+        updates = body.model_dump(exclude_none=True)
+        for k, v in updates.items():
+            setattr(lb, k, v)
+        await self.session.flush()
+        return LabelOut.model_validate(lb)
+
     async def delete_label(self, label_id: int) -> None:
         lb = await self.session.get(Label, label_id)
         if lb:
             await self.session.delete(lb)
+
+    async def bulk_upsert_labels(self, body: BulkLabelsIn) -> list[LabelOut]:
+        """Upsert labels by unique name; (re)set this label's matching rules.
+
+        Powers the Settings "Labels & rules" one-shot save. A label can have
+        any number of independent patterns — each becomes its own ``LabelRule``
+        row, and a description matches the label if ANY one of them matches
+        (OR semantics), so users don't need to hand-write regex alternation.
+        """
+        existing = {
+            lb.name: lb
+            for lb in (await self.session.execute(select(Label))).scalars()
+        }
+        result: list[Label] = []
+        for row in body.labels:
+            lb = existing.get(row.name)
+            if lb is None:
+                lb = Label(name=row.name, color=row.color)
+                self.session.add(lb)
+                await self.session.flush()
+                existing[row.name] = lb
+            else:
+                lb.color = row.color
+            # Replace this label's rules with the provided patterns.
+            await self.session.execute(
+                delete(LabelRule).where(LabelRule.label_id == lb.id)
+            )
+            for raw in row.patterns:
+                pattern = raw.strip()
+                if not pattern:
+                    continue
+                try:
+                    re.compile(pattern)
+                except re.error as exc:
+                    raise ValueError(f"Invalid regex pattern '{pattern}': {exc}") from exc
+                self.session.add(LabelRule(pattern=pattern, label_id=lb.id))
+            result.append(lb)
+        await self.session.flush()
+        return [LabelOut.model_validate(lb) for lb in result]
+
+    # ── Label rules ───────────────────────────────────────────────────────
+
+    async def list_label_rules(self) -> list[LabelRuleOut]:
+        result = await self.session.execute(
+            select(LabelRule).order_by(LabelRule.priority.desc())
+        )
+        return [LabelRuleOut.model_validate(r) for r in result.scalars()]
+
+    async def create_label_rule(self, body: LabelRuleCreateIn) -> LabelRuleOut:
+        try:
+            re.compile(body.pattern)
+        except re.error as exc:
+            raise ValueError(f"Invalid regex pattern: {exc}") from exc
+
+        rule = LabelRule(
+            pattern=body.pattern,
+            label_id=body.label_id,
+            priority=body.priority,
+        )
+        self.session.add(rule)
+        await self.session.flush()
+        return LabelRuleOut.model_validate(rule)
+
+    async def delete_label_rule(self, rule_id: int) -> None:
+        await self.session.execute(delete(LabelRule).where(LabelRule.id == rule_id))
+
+    async def _get_label_rules(self) -> list[LabelRule]:
+        from sqlalchemy.orm import selectinload
+        result = await self.session.execute(
+            select(LabelRule)
+            .options(selectinload(LabelRule.label))
+            .order_by(LabelRule.priority.desc())
+        )
+        return list(result.scalars())
+
+    def _auto_label(self, description: str, rules: list[LabelRule]) -> list[int]:
+        """All label ids whose pattern matches (cumulative, unlike categories)."""
+        return [
+            rule.label_id
+            for rule in rules
+            if re.search(rule.pattern, description, re.IGNORECASE)
+        ]
+
+    @staticmethod
+    def _labels_from_rules(label_ids: list[int], rules: list[LabelRule]) -> list[Label]:
+        """Unique Label objects for the given ids, reusing rules' eager-loaded labels."""
+        by_id: dict[int, Label] = {r.label_id: r.label for r in rules}
+        seen: set[int] = set()
+        out: list[Label] = []
+        for lid in label_ids:
+            if lid not in seen and lid in by_id:
+                seen.add(lid)
+                out.append(by_id[lid])
+        return out
 
     async def set_transaction_labels(
         self, txn_id: int, label_ids: list[int]
@@ -143,6 +260,43 @@ class TransactionService:
             for r in cat_rows
         ]
 
+        # ── By label (debits only; a transaction may count toward several labels) ──
+        label_rows = (await self.session.execute(
+            select(Label.id, Label.name, Label.color, spent_expr)
+            .select_from(Transaction)
+            .join(transaction_labels, transaction_labels.c.transaction_id == Transaction.id)
+            .join(Label, Label.id == transaction_labels.c.label_id)
+            .where(*where, Transaction.amount < 0)
+            .group_by(Label.id, Label.name, Label.color)
+        )).all()
+        by_label = [
+            LabelBucket(
+                label_id=r[0],
+                name=r[1],
+                color=r[2],
+                spent=Decimal(r[3] or 0),
+                pct=float(Decimal(r[3] or 0) / total_spent * 100) if total_spent else 0.0,
+            )
+            for r in label_rows
+        ]
+        unlabeled_exists = (
+            select(transaction_labels.c.transaction_id)
+            .where(transaction_labels.c.transaction_id == Transaction.id)
+            .exists()
+        )
+        unlabeled_spent = Decimal((await self.session.execute(
+            select(spent_expr).where(*where, Transaction.amount < 0, ~unlabeled_exists)
+        )).scalar() or 0)
+        if unlabeled_spent:
+            by_label.append(LabelBucket(
+                label_id=None,
+                name="Unlabeled",
+                color=None,
+                spent=unlabeled_spent,
+                pct=float(unlabeled_spent / total_spent * 100) if total_spent else 0.0,
+            ))
+        by_label.sort(key=lambda b: b.spent, reverse=True)
+
         # ── Top merchants (group raw descriptions in SQL, normalize in Python) ──
         desc_rows = (await self.session.execute(
             select(Transaction.description, spent_expr, func.count())
@@ -166,6 +320,7 @@ class TransactionService:
             txn_count=txn_count,
             by_month=by_month,
             by_category=by_category,
+            by_label=by_label,
             top_merchants=top_merchants,
         )
 
@@ -226,6 +381,46 @@ class TransactionService:
                 return rule.category_id
         return None
 
+    async def rerun_rules(self) -> RerunRulesOut:
+        """Re-apply category + label rules to every existing transaction.
+
+        Never overwrites a manual edit: category is only filled when blank,
+        and labels are only added (existing ones are kept, never removed).
+        """
+        from sqlalchemy.orm import selectinload
+
+        rules = await self._get_rules()
+        label_rules = await self._get_label_rules()
+
+        result = await self.session.execute(
+            select(Transaction).options(selectinload(Transaction.labels))
+        )
+        txns = list(result.scalars())
+
+        categorized = 0
+        labeled = 0
+        for txn in txns:
+            if txn.category_id is None:
+                cat_id = self._auto_categorize(txn.description, rules)
+                if cat_id is not None:
+                    txn.category_id = cat_id
+                    categorized += 1
+
+            matched_ids = self._auto_label(txn.description, label_rules)
+            if matched_ids:
+                existing_ids = {lb.id for lb in txn.labels}
+                new_labels = [
+                    lb
+                    for lb in self._labels_from_rules(matched_ids, label_rules)
+                    if lb.id not in existing_ids
+                ]
+                if new_labels:
+                    txn.labels = [*txn.labels, *new_labels]
+                    labeled += 1
+
+        await self.session.flush()
+        return RerunRulesOut(scanned=len(txns), categorized=categorized, labeled=labeled)
+
     # ── Transactions ──────────────────────────────────────────────────────
 
     async def list_transactions(
@@ -256,6 +451,8 @@ class TransactionService:
     async def create_transaction(self, body: TransactionCreateIn) -> TransactionOut:
         rules = await self._get_rules()
         category_id = body.category_id or self._auto_categorize(body.description, rules)
+        label_rules = await self._get_label_rules()
+        label_ids = self._auto_label(body.description, label_rules)
         dedup_hash = Transaction.compute_hash(
             body.account_id, body.date, body.amount, body.description
         )
@@ -268,6 +465,8 @@ class TransactionService:
             category_id=category_id,
             dedup_hash=dedup_hash,
         )
+        if label_ids:
+            txn.labels = self._labels_from_rules(label_ids, label_rules)
         self.session.add(txn)
         await self.session.flush()
         await self.session.refresh(txn, ["labels"])
