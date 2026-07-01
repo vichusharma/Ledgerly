@@ -46,7 +46,7 @@ export default function SettingsPage() {
     a.click();
   };
 
-  const sectionClass = "bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5";
+  const sectionClass = "bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5";
 
   return (
     <AppShell>
@@ -124,7 +124,7 @@ export default function SettingsPage() {
           {persons.length > 0 ? (
             <ul className="space-y-2">
               {persons.map((p: any) => (
-                <li key={p.id} className="flex items-center gap-3 py-2 border-b border-slate-50 dark:border-border last:border-0">
+                <li key={p.id} className="flex items-center gap-3 py-2 border-b border-surface-border dark:border-border last:border-0">
                   <div className="w-7 h-7 rounded-full bg-brand-50 text-brand-600 font-semibold text-xs flex items-center justify-center">
                     {p.name[0]}
                   </div>
@@ -175,7 +175,7 @@ export default function SettingsPage() {
               {sx.exportBtn}
             </button>
           </div>
-          <div className="flex items-center justify-between py-2 border-t border-slate-50 dark:border-border">
+          <div className="flex items-center justify-between py-2 border-t border-surface-border dark:border-border">
             <div>
               <p className="text-sm text-danger">{sx.deleteTitle}</p>
               <p className="text-xs text-slate-400 dark:text-muted-foreground">{sx.deleteDesc}</p>

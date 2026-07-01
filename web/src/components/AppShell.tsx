@@ -78,7 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-2">
+        <nav className="flex-1 overflow-y-auto py-3 space-y-0.5">
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href || (item.href !== "/scenarios" && pathname.startsWith(item.href));
             return (
@@ -86,15 +86,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 mx-1 rounded-md text-sm font-medium transition-colors",
+                  "relative flex items-center gap-3 px-3 py-2 mx-2 rounded-lg text-sm transition-colors duration-150",
+                  collapsed && "justify-center",
                   active
-                    ? "bg-brand-50 text-brand-600 dark:bg-indigo-950 dark:text-indigo-400"
-                    : "text-slate-600 dark:text-muted-foreground hover:bg-slate-100 dark:hover:bg-secondary hover:text-slate-900 dark:hover:text-foreground"
+                    ? "bg-brand-50 text-brand-700 font-semibold dark:bg-indigo-500/10 dark:text-indigo-300"
+                    : "text-slate-600 dark:text-muted-foreground font-medium hover:bg-slate-100 dark:hover:bg-secondary hover:text-slate-900 dark:hover:text-foreground"
                 )}
                 title={collapsed ? item.label : undefined}
               >
-                <item.icon className="h-4 w-4 flex-shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                {active && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-brand dark:bg-indigo-400" />
+                )}
+                <item.icon className={cn("h-4 w-4 flex-shrink-0", active && "text-brand dark:text-indigo-400")} />
+                {!collapsed && <span className="truncate">{item.label}</span>}
               </Link>
             );
           })}

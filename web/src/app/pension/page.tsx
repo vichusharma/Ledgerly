@@ -40,10 +40,10 @@ interface FormState {
 
 function RowBadge({ row }: { row: SensitivityRow }) {
   if (row.surcote_quarters > 0)
-    return <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium">+{row.surcote_quarters}q</span>;
+    return <span className="text-xs px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 dark:bg-indigo-950/40 dark:text-indigo-400 font-medium">+{row.surcote_quarters}q</span>;
   if (!row.achieves_full_rate && row.decote_quarters > 0)
-    return <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-medium">−{row.decote_quarters}q</span>;
-  return <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-medium">✓</span>;
+    return <span className="text-xs px-1.5 py-0.5 rounded bg-danger/10 text-danger font-medium">−{row.decote_quarters}q</span>;
+  return <span className="text-xs px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">✓</span>;
 }
 
 export default function PensionPage() {
@@ -121,7 +121,7 @@ export default function PensionPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
           {/* ── Left: inputs ── */}
-          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5 space-y-4">
+          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5 space-y-4">
             <div>
               <label className={labelClass}>{px.birthYear}</label>
               <input type="number" value={form.birth_year} onChange={set("birth_year")}
@@ -179,47 +179,47 @@ export default function PensionPage() {
             <div className="space-y-4">
               {/* KPI cards */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-4">
+                <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-xs text-slate-500 dark:text-muted-foreground">{px.samLabel}</p>
+                    <p className="text-xs font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wider">{px.samLabel}</p>
                     <span className="text-xs text-slate-400 dark:text-muted-foreground" title={px.samHint}>ⓘ</span>
                   </div>
-                  <p className="text-lg font-semibold mt-1 money text-slate-900 dark:text-foreground">
+                  <p className="text-2xl font-semibold mt-1.5 money text-slate-900 dark:text-foreground tracking-tight">
                     {formatMoney(result.sam)}
                   </p>
-                  <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">/an</p>
+                  <p className="text-xs text-slate-400 dark:text-muted-foreground mt-1">/an</p>
                 </div>
 
-                <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-4">
-                  <p className="text-xs text-slate-500 dark:text-muted-foreground">{px.quartersLabel}</p>
-                  <p className="text-lg font-semibold mt-1 text-slate-900 dark:text-foreground">
+                <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
+                  <p className="text-xs font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wider">{px.quartersLabel}</p>
+                  <p className="text-2xl font-semibold mt-1.5 text-slate-900 dark:text-foreground tracking-tight">
                     {result.quarters_validated}
                     <span className="text-sm font-normal text-slate-400 dark:text-muted-foreground"> / {result.quarters_required} {px.quartersRequired}</span>
                   </p>
-                  <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">{px.pointsLabel}: {Number(result.total_agirc_arrco_points).toFixed(1)} pts</p>
+                  <p className="text-xs text-slate-400 dark:text-muted-foreground mt-1">{px.pointsLabel}: {Number(result.total_agirc_arrco_points).toFixed(1)} pts</p>
                 </div>
 
-                <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-4">
-                  <p className="text-xs text-slate-500 dark:text-muted-foreground">{px.rateLabel}</p>
-                  <p className={`text-lg font-semibold mt-1 ${result.planned.achieves_full_rate ? "text-success" : "text-danger"}`}>
+                <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
+                  <p className="text-xs font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wider">{px.rateLabel}</p>
+                  <p className="text-2xl font-semibold mt-1.5 text-slate-900 dark:text-foreground tracking-tight">
                     {formatPct(Number(result.planned.rate_applied) * 100, 2)}
                   </p>
-                  <div className="mt-0.5"><RowBadge row={result.planned} /></div>
+                  <div className="mt-1"><RowBadge row={result.planned} /></div>
                 </div>
 
-                <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-4">
-                  <p className="text-xs text-slate-500 dark:text-muted-foreground">{px.monthlyLabel}</p>
-                  <p className="text-lg font-semibold mt-1 money text-slate-900 dark:text-foreground">
+                <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
+                  <p className="text-xs font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wider">{px.monthlyLabel}</p>
+                  <p className="text-2xl font-semibold mt-1.5 money text-slate-900 dark:text-foreground tracking-tight">
                     {formatMoney(result.planned.monthly_total)}
                   </p>
-                  <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">
+                  <p className="text-xs text-slate-400 dark:text-muted-foreground mt-1">
                     {px.replacementLabel}: {formatPct(Number(result.planned.replacement_ratio) * 100, 1)}
                   </p>
                 </div>
               </div>
 
               {/* Breakdown */}
-              <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-4">
+              <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
                 <h2 className="text-xs font-semibold text-slate-500 dark:text-muted-foreground uppercase tracking-wide mb-3">{px.monthlyLabel}</h2>
                 <div className="flex gap-4">
                   <div className="flex-1">
@@ -254,7 +254,7 @@ export default function PensionPage() {
               )}
 
               {/* Sensitivity table */}
-              <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border overflow-hidden">
+              <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm overflow-hidden">
                 <div className="px-4 py-3 border-b border-surface-border dark:border-border">
                   <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground">{px.sensitivityTitle}</h2>
                 </div>
@@ -283,16 +283,16 @@ export default function PensionPage() {
                           isPlanned
                             ? "bg-brand-50 dark:bg-indigo-950/40 font-semibold"
                             : isDecote
-                            ? "bg-red-50/60 dark:bg-red-950/20"
+                            ? "bg-danger/5"
                             : isSurcote
-                            ? "bg-blue-50/60 dark:bg-blue-950/20"
-                            : "bg-green-50/40 dark:bg-green-950/10",
+                            ? "bg-brand/5"
+                            : "bg-success/5",
                         ].join(" ");
 
                         const rateColor = isDecote
                           ? "text-danger"
                           : isSurcote
-                          ? "text-blue-600 dark:text-blue-400"
+                          ? "text-brand dark:text-indigo-400"
                           : "text-success";
 
                         return (
@@ -334,7 +334,7 @@ export default function PensionPage() {
               <p className="text-xs text-slate-400 dark:text-muted-foreground text-center pb-2">{px.disclaimer}</p>
             </div>
           ) : (
-            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-10 flex items-center justify-center min-h-[200px]">
+            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-10 flex items-center justify-center min-h-[200px]">
               <p className="text-sm text-slate-400 dark:text-muted-foreground text-center">{px.noResult}</p>
             </div>
           )}

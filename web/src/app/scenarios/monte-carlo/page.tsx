@@ -90,7 +90,7 @@ export default function MonteCarloPage() {
         legend: {
           data: [`P90 (${mx.dynamic})`, `P50`, `P10 (${mx.conservative})`],
           bottom: 0,
-          textStyle: { color: "#64748b", fontSize: 12 },
+          textStyle: { color: "#94a3b8", fontSize: 12 },
         },
         grid: { top: 20, right: 20, bottom: 48, left: 80 },
         xAxis: {
@@ -101,7 +101,7 @@ export default function MonteCarloPage() {
             color: "#94a3b8",
             fontSize: 11,
           },
-          axisLine: { lineStyle: { color: "#e2e8f0" } },
+          axisLine: { lineStyle: { color: "rgba(148,163,184,0.3)" } },
         },
         yAxis: {
           type: "value",
@@ -110,7 +110,7 @@ export default function MonteCarloPage() {
             color: "#94a3b8",
             fontSize: 11,
           },
-          splitLine: { lineStyle: { color: "#f1f5f9" } },
+          splitLine: { lineStyle: { color: "rgba(148,163,184,0.14)" } },
         },
         series: [
           {
@@ -128,7 +128,7 @@ export default function MonteCarloPage() {
             type: "line",
             data: result.p50,
             smooth: true,
-            lineStyle: { color: "#3b82f6", width: 2 },
+            lineStyle: { color: "#3b82f6", width: 3 },
             itemStyle: { color: "#3b82f6" },
             symbol: "none",
             areaStyle: { color: "rgba(59,130,246,0.08)" },
@@ -167,7 +167,7 @@ export default function MonteCarloPage() {
         </div>
 
         {/* Parameter panel */}
-        <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5 space-y-5">
+        <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5 space-y-5">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground">{mx.parameters}</h2>
 
           {/* Presets */}
@@ -231,22 +231,24 @@ export default function MonteCarloPage() {
                 { label: mx.p50, value: finalP50! },
                 { label: mx.p90, value: finalP90! },
               ] as const).map(({ label, value }) => (
-                <div key={label} className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-4">
-                  <p className="text-xs text-slate-500 dark:text-muted-foreground">{label}</p>
-                  <p className={`text-lg font-semibold mt-1 money ${value >= target ? "text-success" : "text-danger"}`}>
+                <div key={label} className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
+                  <p className="text-xs font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wider">{label}</p>
+                  <p className="text-2xl font-semibold mt-1.5 money text-slate-900 dark:text-foreground tracking-tight">
                     {formatMoney(value)}
                   </p>
-                  {value < target && (
-                    <p className="text-xs text-danger mt-0.5">
-                      {mx.gap} {formatMoney(target - value)}
-                    </p>
-                  )}
+                  <div className="mt-1.5">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                      value >= target ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                    }`}>
+                      {value >= target ? mx.achieved : `${mx.gap} ${formatMoney(target - value)}`}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
 
             {/* Chart */}
-            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
+            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground">{mx.trajectories}</h2>
                 <span className="text-xs bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 px-2 py-1 rounded-full font-medium">
@@ -257,7 +259,7 @@ export default function MonteCarloPage() {
             </div>
 
             {/* Interpretation */}
-            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
+            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
               <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground mb-3">{mx.interpretation}</h2>
               <div className="space-y-2 text-sm text-slate-600 dark:text-muted-foreground">
                 <p>

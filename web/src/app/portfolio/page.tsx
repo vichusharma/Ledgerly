@@ -43,7 +43,7 @@ export default function PortfolioPage() {
         {alloc?.by_class && <AllocationChart slices={alloc.by_class} />}
 
         {/* Movements table */}
-        <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border overflow-hidden">
+        <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-surface-border dark:border-border">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground">{px.movements}</h3>
           </div>
@@ -68,9 +68,9 @@ export default function PortfolioPage() {
                       <td className="px-4 py-2">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           lot.lot_type === "buy"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            ? "bg-success/10 text-success"
                             : lot.lot_type === "sell"
-                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            ? "bg-danger/10 text-danger"
                             : "bg-slate-100 dark:bg-secondary text-slate-600 dark:text-muted-foreground"
                         }`}>
                           {lot.lot_type}
@@ -96,7 +96,7 @@ export default function PortfolioPage() {
 
         {/* By wrapper */}
         {alloc?.by_wrapper?.length > 0 && (
-          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
+          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground mb-4">{px.byWrapper}</h3>
             <div className="space-y-2">
               {alloc.by_wrapper.map((s: any) => (

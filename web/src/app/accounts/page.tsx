@@ -87,7 +87,7 @@ function EditRow({ a, colSpan }: { a: any; colSpan: number }) {
   const { ax, ACCOUNT_TYPES, editForm, setEditForm, handleSave, setEditingId, persons, inputClass, selectClass } = useAcc();
   return (
     <tr>
-      <td colSpan={colSpan} className="px-4 py-4 border-t border-brand/30 dark:border-brand/20 bg-blue-50/40 dark:bg-blue-950/10">
+      <td colSpan={colSpan} className="px-4 py-4 border-t border-brand/30 dark:border-brand/20 bg-brand-50 dark:bg-indigo-950/10">
         <div className="grid grid-cols-2 gap-3 max-w-2xl">
           <div className="col-span-2">
             <label className="text-xs text-slate-500 dark:text-muted-foreground">{ax.name}</label>
@@ -158,13 +158,13 @@ function ArchiveRow({ a, colSpan }: { a: any; colSpan: number }) {
   const { ax, handleArchive, setArchiveConfirmId } = useAcc();
   return (
     <tr>
-      <td colSpan={colSpan} className="px-4 py-3 border-t border-red-200 dark:border-red-900/30 bg-red-50/50 dark:bg-red-950/10">
+      <td colSpan={colSpan} className="px-4 py-3 border-t border-danger/20 bg-danger/5">
         <div className="flex items-center gap-3">
           <p className="text-xs text-slate-600 dark:text-muted-foreground flex-1">
             <span className="font-medium">{ax.archiveConfirm}</span>{" "}
             <span className="text-slate-400">{ax.archiveHint}</span>
           </p>
-          <button onClick={() => handleArchive(a.id)} className="text-xs font-medium text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg">
+          <button onClick={() => handleArchive(a.id)} className="text-xs font-medium text-white bg-danger hover:bg-danger/90 px-3 py-1.5 rounded-lg">
             {ax.archive}
           </button>
           <button onClick={() => setArchiveConfirmId(null)} className="text-xs text-slate-500 dark:text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-secondary">
@@ -209,7 +209,7 @@ function AccountRow({ a, colSpan, showOwners = false }: { a: any; colSpan: numbe
             <button onClick={() => startEdit(a)} title={ax.edit} className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-slate-100 dark:hover:bg-secondary transition-colors">
               <Pencil className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => { setArchiveConfirmId(a.id); setEditingId(null); }} title={ax.archive} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
+            <button onClick={() => { setArchiveConfirmId(a.id); setEditingId(null); }} title={ax.archive} className="p-1.5 rounded-lg text-slate-400 hover:text-danger hover:bg-danger/10 transition-colors">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -234,7 +234,7 @@ function MemberPanel({ person, idx }: { person: any; idx: number }) {
   const countLabel = interp(ax.accountsCount, { n: all.length, s: all.length !== 1 ? "s" : "" });
 
   return (
-    <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border overflow-hidden">
+    <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-border dark:border-border">
         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${avatarCls}`}>
           {initials(person.name)}
@@ -295,7 +295,7 @@ function SharedPanel() {
   if (jointAccounts.length === 0) return null;
   const countLabel = interp(ax.accountsCount, { n: jointAccounts.length, s: jointAccounts.length !== 1 ? "s" : "" });
   return (
-    <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border overflow-hidden">
+    <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-border dark:border-border">
         <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
           <Users className="h-4 w-4 text-amber-600 dark:text-amber-400" />
@@ -340,7 +340,7 @@ function ByTypeView() {
         const remaining = accs.length - PAGE_SIZE;
         const badgeCls = TYPE_BADGE[value] ?? "bg-slate-100 text-slate-600";
         return (
-          <div key={value} className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border overflow-hidden">
+          <div key={value} className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-surface-border dark:border-border">
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${badgeCls}`}>{label}</span>
               <span className="text-xs text-slate-400 dark:text-muted-foreground">({accs.length})</span>
@@ -375,7 +375,7 @@ function ByTypeView() {
                             <button onClick={() => startEdit(a)} title={ax.edit} className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-slate-100 dark:hover:bg-secondary transition-colors">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button onClick={() => { setArchiveConfirmId(a.id); setEditingId(null); }} title={ax.archive} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
+                            <button onClick={() => { setArchiveConfirmId(a.id); setEditingId(null); }} title={ax.archive} className="p-1.5 rounded-lg text-slate-400 hover:text-danger hover:bg-danger/10 transition-colors">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -478,7 +478,7 @@ export default function AccountsPage() {
 
   const inputClass  = "mt-1 w-full text-sm border border-surface-border dark:border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 bg-white dark:bg-secondary dark:text-foreground";
   const selectClass = "mt-1 w-full text-sm border border-surface-border dark:border-border rounded-lg px-3 py-2 focus:outline-none bg-white dark:bg-secondary dark:text-foreground";
-  const thClass     = "px-4 py-2.5 text-left text-xs font-medium text-slate-400 dark:text-muted-foreground uppercase tracking-wider bg-slate-50 dark:bg-secondary/50";
+  const thClass     = "px-4 py-2.5 text-left text-xs font-medium text-slate-400 dark:text-muted-foreground bg-slate-50 dark:bg-secondary/50";
   const tdClass     = "px-4 py-3 text-sm text-slate-700 dark:text-foreground border-t border-surface-border dark:border-border";
 
   const ctx: Ctx = {
@@ -521,7 +521,7 @@ export default function AccountsPage() {
 
           {/* Create form */}
           {showForm && (
-            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5 space-y-3">
+            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5 space-y-3">
               <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground">{ax.newAccount}</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">

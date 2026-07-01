@@ -12,17 +12,17 @@ function GoalRow({ goal }: { goal: any }) {
   const gx = t("goals");
 
   return (
-    <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
+    <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="font-medium text-slate-800 dark:text-foreground">{goal.name}</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-foreground">{goal.name}</h3>
           <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">
             {gx.target} {formatMoney(goal.target_amount)}
             {goal.target_date ? ` · ${formatDate(goal.target_date)}` : ""}
           </p>
         </div>
         {goal.is_achieved && (
-          <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">
+          <span className="text-xs bg-success/10 text-success px-2 py-0.5 rounded-full font-medium">
             {gx.achieved}
           </span>
         )}
@@ -93,7 +93,7 @@ export default function GoalsPage() {
 
         {/* Create form */}
         {showForm && (
-          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5 space-y-3">
+          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5 space-y-3">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground">{gx.newGoal}</h3>
             <input
               placeholder={gx.namePlaceholder}

@@ -172,7 +172,7 @@ export default function ImportPage() {
     const rows = preview?.sample_txns ?? [];
     if (rows.length === 0) return null;
     return (
-      <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border overflow-hidden">
+      <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-surface-border dark:border-border">
           <p className="text-xs font-medium text-slate-600 dark:text-muted-foreground">{ix.willImportTitle}</p>
         </div>
@@ -186,7 +186,7 @@ export default function ImportPage() {
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={i} className="border-b border-slate-50 dark:border-border">
+              <tr key={i} className="border-b border-surface-border dark:border-border">
                 <td className="px-3 py-2 text-slate-600 dark:text-foreground whitespace-nowrap">{formatDate(r.date)}</td>
                 <td className={`px-3 py-2 text-right whitespace-nowrap money ${Number(r.amount) < 0 ? "text-danger" : "text-success"}`}>
                   {Number(r.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -207,7 +207,7 @@ export default function ImportPage() {
 
         {/* ── Step 1: Upload ─────────────────────────────────────────────── */}
         {step === "upload" && (
-          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-6 space-y-4">
+          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>{ix.account}</label>
@@ -253,7 +253,7 @@ export default function ImportPage() {
               <p className="text-xs text-slate-400 dark:text-muted-foreground text-center">{ix.selectAccountFirst}</p>
             )}
             {error && (
-              <div className="flex items-center gap-2 text-sm text-danger bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-danger bg-danger/10 border border-danger/20 rounded-lg px-4 py-3">
                 <AlertCircle className="h-4 w-4 shrink-0" />{error}
               </div>
             )}
@@ -264,7 +264,7 @@ export default function ImportPage() {
         {step === "mapping" && preview && (
           <div className="space-y-4">
             {/* Format banner */}
-            <div className="flex items-center gap-2 text-sm bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 text-sm bg-brand-50 dark:bg-indigo-950/20 border border-brand/20 dark:border-indigo-800/30 rounded-lg px-4 py-3">
               <FileCheck2 className="h-4 w-4 text-brand shrink-0" />
               <span className="text-slate-700 dark:text-foreground">
                 <span className="font-medium">{ix.formatLabel}:</span> {fmtLabel(preview.format)}
@@ -275,7 +275,7 @@ export default function ImportPage() {
 
             {/* CSV mapping controls */}
             {isCsv && (
-              <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-6 space-y-5">
+              <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-6 space-y-5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-semibold text-slate-800 dark:text-foreground">{ix.mapTitle}</h2>
                   <span className="text-xs text-slate-400 dark:text-muted-foreground">{file?.name}</span>
@@ -402,7 +402,7 @@ export default function ImportPage() {
             <SampleTxns />
 
             {error && (
-              <div className="flex items-center gap-2 text-sm text-danger bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-danger bg-danger/10 border border-danger/20 rounded-lg px-4 py-3">
                 <AlertCircle className="h-4 w-4 shrink-0" />{error}
               </div>
             )}
@@ -427,8 +427,8 @@ export default function ImportPage() {
 
         {/* ── Step 3: Done ───────────────────────────────────────────────── */}
         {step === "done" && result && (
-          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-6 space-y-4">
-            <div className="flex items-center gap-3 text-sm bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-lg px-4 py-4">
+          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-6 space-y-4">
+            <div className="flex items-center gap-3 text-sm bg-success/10 border border-success/20 rounded-lg px-4 py-4">
               <CheckCircle className="h-5 w-5 text-success shrink-0" />
               <div>
                 <p className="font-medium text-success">{ix.successTitle}</p>
@@ -448,7 +448,7 @@ export default function ImportPage() {
 
         {/* ── Import history ─────────────────────────────────────────────── */}
         {batches.length > 0 && (
-          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border overflow-hidden">
+          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-surface-border dark:border-border">
               <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground">{ix.history}</h3>
             </div>

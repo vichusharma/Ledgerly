@@ -70,7 +70,7 @@ export default function ScenariosPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Parameters panel */}
-          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5 space-y-4">
+          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5 space-y-4">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground">{sx.parameters}</h3>
 
             <label className="block">
@@ -184,7 +184,7 @@ export default function ScenariosPage() {
                     />
 
                     {/* Interpretation */}
-                    <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5 grid grid-cols-2 gap-4 text-sm">
+                    <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5 grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <p className="text-xs text-slate-400 dark:text-muted-foreground">{sx.finalValueInvest}</p>
                         <p className="money font-semibold text-slate-900 dark:text-foreground">{formatMoney(activeResult.invest_net_worth_end)}</p>
@@ -220,11 +220,11 @@ export default function ScenariosPage() {
 
             {/* Saved scenarios */}
             {scenarios.length > 0 && (
-              <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border p-5">
+              <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-5">
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground mb-3">{sx.saved}</h3>
                 <div className="space-y-2">
                   {scenarios.map((s: any) => (
-                    <div key={s.id} className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-border last:border-0">
+                    <div key={s.id} className="flex items-center justify-between py-2 border-b border-surface-border dark:border-border last:border-0">
                       <span className="text-sm text-slate-700 dark:text-foreground">{s.name}</span>
                       <span className="text-xs text-slate-400 dark:text-muted-foreground">
                         {s.last_run_at

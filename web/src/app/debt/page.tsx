@@ -56,7 +56,7 @@ export default function DebtPage() {
         )}
 
         {/* Amortization table */}
-        <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border overflow-hidden">
+        <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-surface-border dark:border-border flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground">{dx.schedule}</h3>
             <span className="text-xs text-slate-400 dark:text-muted-foreground">{schedule.length} {dx.payments}</span>
