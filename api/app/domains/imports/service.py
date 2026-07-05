@@ -10,7 +10,7 @@ import datetime
 from decimal import InvalidOperation
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +25,10 @@ from app.domains.imports.schemas import (
     ImportMappingOut,
     SampleTxn,
     StatementPreviewOut,
+    ValuationCandidateOut,
+    ValuationPreviewOut,
+    ValuationSaveIn,
+    ValuationSaveOut,
 )
 from app.domains.transactions.models import ImportBatch, Transaction
 from app.domains.transactions.service import TransactionService
@@ -336,3 +340,102 @@ class ImportService:
         batch.is_rolled_back = True
         await self.session.flush()
         return True
+
+    # ── Wrapper valuation statements (AV annual relevés etc.) ─────────────
+
+    async def preview_valuation(self, content: bytes) -> ValuationPreviewOut:
+        """Extract candidate fund valuations from a statement PDF. No DB write."""
+        from app.domains.imports.parsers.pdf_valuation_parser import parse_pdf_valuation
+
+        preview = parse_pdf_valuation(content)
+        return ValuationPreviewOut(
+            as_of_date=(
+                datetime.date.fromisoformat(preview.as_of_date)
+                if preview.as_of_date else None
+            ),
+            candidates=[
+                ValuationCandidateOut(label=c.label, value=c.value)
+                for c in preview.candidates
+            ],
+        )
+
+    async def save_valuation(self, body: ValuationSaveIn) -> ValuationSaveOut:
+        """Persist reviewed fund valuations as ``valuation`` lots.
+
+        Per item: resolve the Instrument (by id, else case-insensitive name
+        match, else create one), then upsert an InvestmentLot with
+        lot_type=valuation, quantity=1, price=value for (account, instrument,
+        as_of_date) — re-submitting a corrected review updates in place.
+        """
+        from decimal import Decimal
+
+        from app.domains.investments.models import (
+            AssetClass,
+            Instrument,
+            InvestmentLot,
+            LotType,
+        )
+
+        account = await self.session.get(Account, body.account_id)
+        currency = account.currency if account else "EUR"
+
+        saved = 0
+        created_instruments = 0
+        total = Decimal("0")
+
+        for item in body.items:
+            inst = None
+            if item.instrument_id:
+                inst = await self.session.get(Instrument, item.instrument_id)
+            if inst is None:
+                result = await self.session.execute(
+                    select(Instrument).where(
+                        func.lower(Instrument.name) == item.label.strip().lower()
+                    )
+                )
+                inst = result.scalars().first()
+            if inst is None:
+                inst = Instrument(
+                    name=item.label.strip(),
+                    asset_class=AssetClass.other,
+                    currency=currency,
+                )
+                self.session.add(inst)
+                await self.session.flush()
+                created_instruments += 1
+
+            existing = await self.session.execute(
+                select(InvestmentLot).where(
+                    InvestmentLot.account_id == body.account_id,
+                    InvestmentLot.instrument_id == inst.id,
+                    InvestmentLot.lot_type == LotType.valuation,
+                    InvestmentLot.settled_at == body.as_of_date,
+                )
+            )
+            lot = existing.scalars().first()
+            if lot:
+                lot.quantity = Decimal("1")
+                lot.price = item.value
+            else:
+                self.session.add(InvestmentLot(
+                    account_id=body.account_id,
+                    instrument_id=inst.id,
+                    lot_type=LotType.valuation,
+                    quantity=Decimal("1"),
+                    price=item.value,
+                    currency=currency,
+                    settled_at=body.as_of_date,
+                    notes="Imported from valuation statement",
+                ))
+            saved += 1
+            total += item.value
+
+        await self.session.flush()
+
+        # Refresh today's net-worth snapshot so the dashboard reflects the new values.
+        from app.domains.networth.service import NetWorthService
+        await NetWorthService(self.session).take_snapshot()
+
+        return ValuationSaveOut(
+            saved=saved, created_instruments=created_instruments, total_value=total
+        )

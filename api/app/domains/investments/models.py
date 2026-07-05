@@ -34,6 +34,12 @@ class LotType(str, enum.Enum):
     fee = "fee"
     split = "split"                # stock split
     vesting = "vesting"            # RSU vest
+    # Point-in-time total value for a holding, as reported in a periodic
+    # statement (e.g. annual assurance-vie relevé) — quantity*price *is* the
+    # authoritative value as of settled_at, not a real cash movement. The
+    # latest valuation lot per instrument supersedes earlier ones; they are
+    # never summed together, and they never count toward invested capital.
+    valuation = "valuation"
 
 
 class WrapperType(str, enum.Enum):

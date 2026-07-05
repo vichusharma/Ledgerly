@@ -61,5 +61,36 @@ class StatementPreviewOut(BaseModel):
     sample_txns: list[SampleTxn] = []        # canonical preview of the first parsed lines
 
 
+class ValuationCandidateOut(BaseModel):
+    """One candidate fund row extracted from a valuation statement PDF."""
+    label: str
+    value: Decimal
+
+
+class ValuationPreviewOut(BaseModel):
+    """Preview of a wrapper valuation statement — no DB write, user reviews first."""
+    as_of_date: datetime.date | None = None
+    candidates: list[ValuationCandidateOut] = []
+
+
+class ValuationItemIn(BaseModel):
+    """One reviewed/confirmed fund valuation to save."""
+    label: str
+    value: Decimal
+    instrument_id: int | None = None  # None → resolve/create by label
+
+
+class ValuationSaveIn(BaseModel):
+    account_id: int
+    as_of_date: datetime.date
+    items: list[ValuationItemIn]
+
+
+class ValuationSaveOut(BaseModel):
+    saved: int
+    created_instruments: int
+    total_value: Decimal
+
+
 # Backwards-compatible alias (older imports referenced CsvPreviewOut).
 CsvPreviewOut = StatementPreviewOut

@@ -324,3 +324,29 @@ export const useImportStatement = () => {
     },
   });
 };
+
+// Wrapper valuation statements (AV annual relevés). Preview is read-only.
+export const usePreviewValuation = () =>
+  useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/imports/pdf-valuation/preview", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+  });
+
+export const useSaveValuation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      account_id: number;
+      as_of_date: string;
+      items: { label: string; value: number }[];
+    }) => apiClient.post("/imports/pdf-valuation", body).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["networth"] });
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
+      qc.invalidateQueries({ queryKey: ["lots"] });
+      qc.invalidateQueries({ queryKey: ["instruments"] });
+    },
+  });
+};

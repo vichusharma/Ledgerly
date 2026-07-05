@@ -171,18 +171,36 @@ class NetWorthService:
             return total if total is not None else Decimal("0")
 
         elif account.type == AccountType.investment_wrapper:
-            # Sum: (quantity × latest_price) for all buy lots
+            # Per instrument: the latest statement valuation lot (≤ as_of) is the
+            # authoritative value; only instruments without one fall back to the
+            # buy-lot × latest-price computation. Valuation lots are never summed
+            # with each other or with buy lots for the same instrument.
             lots_result = await self.session.execute(
                 select(InvestmentLot).where(
                     InvestmentLot.account_id == account.id,
-                    InvestmentLot.lot_type == LotType.buy,
+                    InvestmentLot.lot_type.in_([LotType.buy, LotType.valuation]),
                     InvestmentLot.settled_at <= as_of,
                 )
             )
             lots = list(lots_result.scalars())
-            total = Decimal("0")
+
+            valuations: dict[int, InvestmentLot] = {}
             for lot in lots:
+                if lot.lot_type == LotType.valuation and lot.instrument_id:
+                    cur = valuations.get(lot.instrument_id)
+                    if cur is None or (lot.settled_at, lot.id) > (cur.settled_at, cur.id):
+                        valuations[lot.instrument_id] = lot
+
+            total = Decimal("0")
+            for v in valuations.values():
+                total += v.quantity * v.price
+
+            for lot in lots:
+                if lot.lot_type != LotType.buy:
+                    continue
                 if lot.instrument_id:
+                    if lot.instrument_id in valuations:
+                        continue  # statement value supersedes computed value
                     price_result = await self.session.execute(
                         select(InstrumentPrice)
                         .where(

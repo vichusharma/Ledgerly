@@ -125,6 +125,20 @@ class InvestmentService:
             count += 1
         return count
 
+    # ── Valuation lots ────────────────────────────────────────────────────
+
+    @staticmethod
+    def _latest_valuations(lots: list[InvestmentLot]) -> dict[int, InvestmentLot]:
+        """instrument_id → most recent valuation lot (each supersedes earlier ones)."""
+        best: dict[int, InvestmentLot] = {}
+        for lot in lots:
+            if lot.lot_type != LotType.valuation or not lot.instrument_id:
+                continue
+            cur = best.get(lot.instrument_id)
+            if cur is None or (lot.settled_at, lot.id) > (cur.settled_at, cur.id):
+                best[lot.instrument_id] = lot
+        return best
+
     # ── Performance (TWR + XIRR) ──────────────────────────────────────────
 
     async def get_performance(
@@ -162,6 +176,12 @@ class InvestmentService:
         cashflows: list[CashFlow] = []
         current_value = Decimal("0")
 
+        # Latest statement valuation per instrument: authoritative current value,
+        # but NOT a cash movement — never in total_invested or the XIRR cashflows.
+        valuations = self._latest_valuations(lots)
+        for v in valuations.values():
+            current_value += v.quantity * v.price
+
         for lot in lots:
             cost = lot.quantity * lot.price + lot.fees
             if lot.lot_type in (LotType.buy, LotType.contribution):
@@ -173,8 +193,12 @@ class InvestmentService:
             elif lot.lot_type == LotType.dividend:
                 cashflows.append(CashFlow(date=lot.settled_at, amount=float(lot.price)))
 
-            # Current market value
-            if lot.instrument_id and lot.lot_type == LotType.buy:
+            # Current market value (skipped when a statement valuation supersedes it)
+            if (
+                lot.instrument_id
+                and lot.lot_type == LotType.buy
+                and lot.instrument_id not in valuations
+            ):
                 price_result = await self.session.execute(
                     select(InstrumentPrice)
                     .where(
@@ -214,7 +238,9 @@ class InvestmentService:
         """Compute actual allocation by asset class, region, and wrapper."""
         lots_result = await self.session.execute(
             select(InvestmentLot).where(
-                InvestmentLot.lot_type.in_([LotType.buy, LotType.contribution])
+                InvestmentLot.lot_type.in_(
+                    [LotType.buy, LotType.contribution, LotType.valuation]
+                )
             )
         )
         lots = list(lots_result.scalars())
@@ -226,6 +252,9 @@ class InvestmentService:
 
         total_value = Decimal("0")
 
+        # Latest statement valuation per instrument supersedes buy-lot math.
+        valuations = self._latest_valuations(lots)
+
         for lot in lots:
             if not lot.instrument_id:
                 continue
@@ -233,20 +262,27 @@ class InvestmentService:
             if not inst:
                 continue
 
-            price_result = await self.session.execute(
-                select(InstrumentPrice)
-                .where(
-                    InstrumentPrice.instrument_id == lot.instrument_id,
-                    InstrumentPrice.date <= today,
+            if lot.lot_type == LotType.valuation:
+                if valuations.get(lot.instrument_id) is not lot:
+                    continue  # superseded by a newer statement
+                market_value = lot.quantity * lot.price
+            else:
+                if lot.instrument_id in valuations:
+                    continue  # statement value supersedes computed value
+                price_result = await self.session.execute(
+                    select(InstrumentPrice)
+                    .where(
+                        InstrumentPrice.instrument_id == lot.instrument_id,
+                        InstrumentPrice.date <= today,
+                    )
+                    .order_by(InstrumentPrice.date.desc())
+                    .limit(1)
                 )
-                .order_by(InstrumentPrice.date.desc())
-                .limit(1)
-            )
-            latest_price = price_result.scalar_one_or_none()
-            if not latest_price:
-                continue
+                latest_price = price_result.scalar_one_or_none()
+                if not latest_price:
+                    continue
+                market_value = lot.quantity * latest_price.close
 
-            market_value = lot.quantity * latest_price.close
             total_value += market_value
 
             cls = inst.asset_class.value if inst.asset_class else "other"

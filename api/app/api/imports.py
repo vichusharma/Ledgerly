@@ -6,7 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.domains.imports.schemas import (
-    ColumnMappingIn, ImportBatchOut, ImportMappingOut, StatementPreviewOut,
+    ColumnMappingIn,
+    ImportBatchOut,
+    ImportMappingOut,
+    StatementPreviewOut,
+    ValuationPreviewOut,
+    ValuationSaveIn,
+    ValuationSaveOut,
 )
 from app.domains.imports.service import ImportService
 
@@ -66,6 +72,25 @@ async def import_statement(
         decimal_separator=decimal_separator,
         save_as=save_as or None,
     )
+
+
+@router.post("/imports/pdf-valuation/preview", response_model=ValuationPreviewOut)
+async def preview_valuation(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+) -> ValuationPreviewOut:
+    """Extract candidate fund valuations from a wrapper statement PDF. No DB write."""
+    content = await file.read()
+    return await ImportService(db).preview_valuation(content)
+
+
+@router.post("/imports/pdf-valuation", response_model=ValuationSaveOut, status_code=201)
+async def save_valuation(
+    body: ValuationSaveIn,
+    db: AsyncSession = Depends(get_db),
+) -> ValuationSaveOut:
+    """Persist user-reviewed fund valuations as valuation lots + refresh snapshot."""
+    return await ImportService(db).save_valuation(body)
 
 
 @router.get("/imports", response_model=list[ImportBatchOut])

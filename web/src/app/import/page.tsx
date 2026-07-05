@@ -5,15 +5,18 @@ import { AppShell } from "@/components/AppShell";
 import {
   useAccounts, useImportBatches, useImportMappings,
   usePreviewStatement, useImportStatement,
+  usePreviewValuation, useSaveValuation,
 } from "@/lib/api/hooks";
 import { useLanguage } from "@/lib/context/LanguageContext";
-import { Upload, CheckCircle, AlertCircle, ChevronRight, ArrowLeft, FileCheck2 } from "lucide-react";
+import { Upload, CheckCircle, AlertCircle, ChevronRight, ArrowLeft, FileCheck2, Plus, X } from "lucide-react";
 import { formatDate } from "@/lib/format/money";
 import { InstitutionCombobox } from "@/components/InstitutionCombobox";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type Step = "upload" | "mapping" | "done";
+type Step = "upload" | "mapping" | "valuation" | "done";
+
+interface ValRow { label: string; value: string; include: boolean }
 
 interface Preview {
   format: "csv" | "ofx" | "qif" | "camt" | "pdf";
@@ -51,6 +54,8 @@ export default function ImportPage() {
   const { data: mappings = [] } = useImportMappings();
   const previewStatement = usePreviewStatement();
   const importStatement = useImportStatement();
+  const previewValuation = usePreviewValuation();
+  const saveValuation = useSaveValuation();
   const { t } = useLanguage();
   const ix = t("import");
 
@@ -63,6 +68,15 @@ export default function ImportPage() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Wrapper valuation-statement mode
+  const [valuationMode, setValuationMode] = useState(false);
+  const [valAsOf, setValAsOf] = useState("");
+  const [valRows, setValRows] = useState<ValRow[]>([]);
+  const [valResult, setValResult] = useState<any>(null);
+
+  const selectedAccountObj = accounts.find((a: any) => String(a.id) === selectedAccount);
+  const isWrapperAccount = selectedAccountObj?.type === "investment_wrapper";
 
   const setM = (patch: Partial<Mapping>) => setMapping(prev => ({ ...prev, ...patch }));
 
@@ -78,6 +92,23 @@ export default function ImportPage() {
     const form = new FormData();
     form.append("file", f);
     form.append("account_id", selectedAccount);
+
+    // Wrapper valuation statement → dedicated preview + review flow.
+    if (valuationMode) {
+      try {
+        const vp = await previewValuation.mutateAsync(form);
+        setValAsOf(vp.as_of_date || "");
+        setValRows(
+          (vp.candidates || []).map((c: any) => ({
+            label: c.label, value: String(c.value), include: true,
+          }))
+        );
+        setStep("valuation");
+      } catch (e: any) {
+        setError(e.response?.data?.detail || ix.error);
+      }
+      return;
+    }
 
     try {
       const p: Preview = await previewStatement.mutateAsync(form);
@@ -110,7 +141,7 @@ export default function ImportPage() {
     } catch (e: any) {
       setError(e.response?.data?.detail || ix.error);
     }
-  }, [selectedAccount, selectedMappingId, mappings, ix, previewStatement]);
+  }, [selectedAccount, selectedMappingId, mappings, ix, previewStatement, valuationMode, previewValuation]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -157,6 +188,32 @@ export default function ImportPage() {
     setPreview(null);
     setResult(null);
     setError(null);
+    setValRows([]);
+    setValAsOf("");
+    setValResult(null);
+  };
+
+  const updateValRow = (i: number, patch: Partial<ValRow>) =>
+    setValRows(rs => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
+  const handleSaveValuation = async () => {
+    if (!selectedAccount || !valAsOf) return;
+    setError(null);
+    const items = valRows
+      .filter(r => r.include && r.label.trim() && !isNaN(parseFloat(r.value)))
+      .map(r => ({ label: r.label.trim(), value: parseFloat(r.value) }));
+    if (items.length === 0) return;
+    try {
+      const res = await saveValuation.mutateAsync({
+        account_id: Number(selectedAccount),
+        as_of_date: valAsOf,
+        items,
+      });
+      setValResult(res);
+      setStep("done");
+    } catch (e: any) {
+      setError(e.response?.data?.detail || ix.error);
+    }
   };
 
   const inputCls = "mt-1 w-full text-sm border border-surface-border dark:border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 bg-white dark:bg-secondary dark:text-foreground";
@@ -165,7 +222,7 @@ export default function ImportPage() {
 
   const colOptions = (preview?.headers ?? []).map(h => <option key={h} value={h}>{h}</option>);
   const uploading = importStatement.isPending;
-  const analyzing = previewStatement.isPending;
+  const analyzing = previewStatement.isPending || previewValuation.isPending;
 
   // Canonical "what we'll import" preview, shown for every format.
   const SampleTxns = () => {
@@ -224,6 +281,18 @@ export default function ImportPage() {
                 </select>
               </div>
             </div>
+
+            {isWrapperAccount && (
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600 dark:text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={valuationMode}
+                  onChange={e => setValuationMode(e.target.checked)}
+                  className="rounded"
+                />
+                {ix.valuationToggle}
+              </label>
+            )}
 
             <div
               className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
@@ -425,18 +494,137 @@ export default function ImportPage() {
           </div>
         )}
 
-        {/* ── Step 3: Done ───────────────────────────────────────────────── */}
-        {step === "done" && result && (
+        {/* ── Step 2b: Valuation review (wrapper statements) ─────────────── */}
+        {step === "valuation" && (
+          <div className="space-y-4">
+            <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-foreground">{ix.valuationReviewTitle}</h2>
+                <span className="text-xs text-slate-400 dark:text-muted-foreground">{file?.name}</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-muted-foreground">{ix.valuationReviewHint}</p>
+
+              <div className="max-w-xs">
+                <label className={labelCls}>{ix.valuationAsOf}</label>
+                <input type="date" value={valAsOf} onChange={e => setValAsOf(e.target.value)} className={inputCls} />
+                {!valAsOf && <p className="text-xs text-danger mt-1">{ix.valuationAsOfRequired}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <div className="grid grid-cols-[auto_1fr_10rem_auto] gap-2 text-xs font-medium text-slate-400 dark:text-muted-foreground px-1">
+                  <span />
+                  <span>{ix.valuationLabel}</span>
+                  <span className="text-right">{ix.valuationValue}</span>
+                  <span />
+                </div>
+                {valRows.map((row, i) => (
+                  <div key={i} className={`grid grid-cols-[auto_1fr_10rem_auto] gap-2 items-center ${row.include ? "" : "opacity-40"}`}>
+                    <input
+                      type="checkbox"
+                      checked={row.include}
+                      onChange={e => updateValRow(i, { include: e.target.checked })}
+                      className="rounded"
+                    />
+                    <input
+                      value={row.label}
+                      onChange={e => updateValRow(i, { label: e.target.value })}
+                      className="text-sm border border-surface-border dark:border-border rounded-lg px-3 py-1.5 bg-white dark:bg-secondary dark:text-foreground focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    />
+                    <input
+                      value={row.value}
+                      onChange={e => updateValRow(i, { value: e.target.value })}
+                      className="text-sm text-right money border border-surface-border dark:border-border rounded-lg px-3 py-1.5 bg-white dark:bg-secondary dark:text-foreground focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setValRows(rs => rs.filter((_, idx) => idx !== i))}
+                      className="p-1.5 text-slate-400 hover:text-danger"
+                      aria-label="remove"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {valRows.length === 0 && (
+                  <p className="text-sm text-slate-400 dark:text-muted-foreground">{ix.valuationNoCandidates}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setValRows(rs => [...rs, { label: "", value: "", include: true }])}
+                  className="inline-flex items-center gap-1.5 text-sm text-brand font-medium hover:underline"
+                >
+                  <Plus className="h-3.5 w-3.5" /> {ix.valuationAddRow}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 text-sm text-danger bg-danger/10 border border-danger/20 rounded-lg px-4 py-3">
+                <AlertCircle className="h-4 w-4 shrink-0" />{error}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleBack}
+                className="flex items-center gap-1.5 px-4 py-2.5 text-sm border border-surface-border dark:border-border rounded-lg text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-secondary transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />{ix.backBtn}
+              </button>
+              <button
+                onClick={handleSaveValuation}
+                disabled={!valAsOf || saveValuation.isPending || valRows.filter(r => r.include).length === 0}
+                className="flex-1 flex items-center justify-center gap-2 bg-brand text-white text-sm font-medium py-2.5 rounded-lg disabled:opacity-50 hover:bg-brand-700 transition-colors"
+              >
+                {saveValuation.isPending ? ix.importing : (<>{ix.valuationSave}<ChevronRight className="h-4 w-4" /></>)}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3b: Valuation done ────────────────────────────────────── */}
+        {step === "done" && valResult && (
           <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-6 space-y-4">
             <div className="flex items-center gap-3 text-sm bg-success/10 border border-success/20 rounded-lg px-4 py-4">
               <CheckCircle className="h-5 w-5 text-success shrink-0" />
               <div>
-                <p className="font-medium text-success">{ix.successTitle}</p>
+                <p className="font-medium text-success">{ix.valuationSaved}</p>
                 <p className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5">
-                  {result.row_count} {ix.successDesc} · {result.duplicate_count} {ix.duplicates}
+                  {valResult.saved} {ix.valuationSavedDesc} · {Number(valResult.total_value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                 </p>
               </div>
             </div>
+            <button
+              onClick={handleBack}
+              className="w-full border border-surface-border dark:border-border text-sm py-2.5 rounded-lg text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-secondary transition-colors"
+            >
+              {ix.backBtn}
+            </button>
+          </div>
+        )}
+
+        {/* ── Step 3: Done ───────────────────────────────────────────────── */}
+        {step === "done" && result && (
+          <div className="bg-white dark:bg-card rounded-xl border border-surface-border dark:border-border shadow-sm p-6 space-y-4">
+            {result.row_count === 0 && result.duplicate_count === 0 ? (
+              <div className="flex items-center gap-3 text-sm bg-warning/10 border border-warning/20 rounded-lg px-4 py-4">
+                <AlertCircle className="h-5 w-5 text-warning shrink-0" />
+                <div>
+                  <p className="font-medium text-warning">{ix.emptyImportTitle}</p>
+                  <p className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5">{ix.emptyImportDesc}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 text-sm bg-success/10 border border-success/20 rounded-lg px-4 py-4">
+                <CheckCircle className="h-5 w-5 text-success shrink-0" />
+                <div>
+                  <p className="font-medium text-success">{ix.successTitle}</p>
+                  <p className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5">
+                    {result.row_count} {ix.successDesc} · {result.duplicate_count} {ix.duplicates}
+                  </p>
+                </div>
+              </div>
+            )}
             <button
               onClick={handleBack}
               className="w-full border border-surface-border dark:border-border text-sm py-2.5 rounded-lg text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-secondary transition-colors"
