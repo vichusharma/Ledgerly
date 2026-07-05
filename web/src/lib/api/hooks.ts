@@ -214,6 +214,60 @@ export const usePortfolioAllocation = (scope = "household") =>
       apiClient.get("/portfolio/allocation", { params: { scope } }).then(r => r.data),
   });
 
+export const useHoldings = (scope = "household") =>
+  useQuery({
+    queryKey: ["holdings", scope],
+    queryFn: () => apiClient.get("/portfolio/holdings", { params: { scope } }).then(r => r.data),
+  });
+
+export const useAddHolding = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: object) => apiClient.post("/portfolio/holdings", data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["holdings"] });
+      qc.invalidateQueries({ queryKey: ["lots"] });
+      qc.invalidateQueries({ queryKey: ["instruments"] });
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
+    },
+  });
+};
+
+export const useDeleteLot = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/investment-lots/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lots"] });
+      qc.invalidateQueries({ queryKey: ["holdings"] });
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
+    },
+  });
+};
+
+// Modeled as a mutation (not a query) so the add-holding form can call
+// .mutateAsync(isin) manually from a debounce effect instead of auto-firing.
+export const useInstrumentLookup = () =>
+  useMutation({
+    mutationFn: (isin: string) =>
+      apiClient.get("/instruments/lookup", { params: { isin } }).then(r => r.data),
+  });
+
+export const usePriceLookupSetting = () =>
+  useQuery({
+    queryKey: ["settings", "price-lookup"],
+    queryFn: () => apiClient.get("/settings/price-lookup").then(r => r.data),
+  });
+
+export const useSetPriceLookupSetting = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) =>
+      apiClient.put("/settings/price-lookup", { price_lookup_enabled: enabled }).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["settings", "price-lookup"] }),
+  });
+};
+
 // ── Liabilities ───────────────────────────────────────────────────────────────
 
 export const useLoans = () =>

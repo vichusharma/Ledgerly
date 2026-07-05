@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import datetime
 import io
+from dataclasses import dataclass
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -17,10 +18,28 @@ from app.domains.investments.models import (
     TargetAllocation, VestingSchedule,
 )
 from app.domains.investments.schemas import (
-    AllocationOut, AllocationSliceOut, InstrumentCreateIn, InstrumentOut,
+    AllocationOut, AllocationSliceOut, HoldingCreateIn, HoldingOut,
+    HoldingRowOut, HoldingsOut, InstrumentCreateIn, InstrumentOut,
     LotCreateIn, LotOut, PerformanceOut, PerformanceSeriesPoint,
     PriceCreateIn, PriceOut, TargetAllocationIn,
 )
+
+
+@dataclass(frozen=True)
+class PositionSnapshot:
+    """A current position derived from the lot ledger — one per (account, instrument),
+    or one per instrument for statement valuations (which supersede globally, not
+    per-account — see `_latest_valuations`), or one per account for cash-only buy
+    lots (`instrument_id is None`)."""
+
+    account_id: int
+    instrument_id: int | None
+    quantity: Decimal
+    cost_basis: Decimal | None  # None for valuation-sourced rows (not a purchase)
+    price: Decimal | None
+    price_date: datetime.date | None
+    market_value: Decimal | None  # None when no price is available yet
+    source: str  # "valuation" | "buy" | "cash"
 
 
 class InvestmentService:
@@ -38,9 +57,27 @@ class InvestmentService:
         return InstrumentOut.model_validate(i) if i else None
 
     async def create_instrument(self, body: InstrumentCreateIn) -> InstrumentOut:
+        if body.isin:
+            existing = await self.session.execute(
+                select(Instrument).where(Instrument.isin == body.isin)
+            )
+            found = existing.scalar_one_or_none()
+            if found:
+                return InstrumentOut.model_validate(found)
+
         inst = Instrument(**body.model_dump())
-        self.session.add(inst)
-        await self.session.flush()
+        try:
+            # Savepoint so a lost create-race doesn't roll back other writes
+            # already made earlier in this session/request.
+            async with self.session.begin_nested():
+                self.session.add(inst)
+                await self.session.flush()
+        except IntegrityError:
+            # Lost a create-race on the unique ISIN — the other insert won, reuse it.
+            existing = await self.session.execute(
+                select(Instrument).where(Instrument.isin == body.isin)
+            )
+            return InstrumentOut.model_validate(existing.scalar_one())
         return InstrumentOut.model_validate(inst)
 
     # ── Lots ──────────────────────────────────────────────────────────────
@@ -67,11 +104,14 @@ class InvestmentService:
 
     async def create_price(self, body: PriceCreateIn) -> PriceOut:
         price = InstrumentPrice(**body.model_dump())
-        self.session.add(price)
         try:
-            await self.session.flush()
+            # Savepoint so a duplicate (instrument, date) doesn't roll back
+            # other writes already made earlier in this session/request (e.g.
+            # add_holding's lot insert that precedes this price upsert).
+            async with self.session.begin_nested():
+                self.session.add(price)
+                await self.session.flush()
         except IntegrityError:
-            await self.session.rollback()
             # Upsert: update existing
             existing = await self.session.execute(
                 select(InstrumentPrice).where(
@@ -139,6 +179,97 @@ class InvestmentService:
                 best[lot.instrument_id] = lot
         return best
 
+    async def _compute_positions(
+        self, lots: list[InvestmentLot], as_of: datetime.date
+    ) -> list[PositionSnapshot]:
+        """Derive current positions from a lot ledger.
+
+        Shared by get_performance, get_allocation, and
+        networth/service.py::_compute_account_balance so the "latest valuation
+        wins, else sum buy-lot quantity x latest price" algorithm exists in one
+        place. Statement valuations supersede globally per instrument (not per
+        account) — see `_latest_valuations` — exactly as before this helper
+        existed; callers that want only priced instrument positions should
+        filter out `source == "cash"` rows (instrument_id is None) themselves.
+        """
+        relevant = [
+            lot for lot in lots
+            if lot.lot_type in (LotType.buy, LotType.valuation) and lot.settled_at <= as_of
+        ]
+        valuations = self._latest_valuations(relevant)
+
+        positions: list[PositionSnapshot] = [
+            PositionSnapshot(
+                account_id=lot.account_id,
+                instrument_id=lot.instrument_id,
+                quantity=lot.quantity,
+                cost_basis=None,
+                price=lot.price,
+                price_date=lot.settled_at,
+                market_value=lot.quantity * lot.price,
+                source="valuation",
+            )
+            for lot in valuations.values()
+        ]
+
+        grouped: dict[tuple[int, int], dict[str, Decimal]] = {}
+        cash_grouped: dict[int, dict[str, Decimal]] = {}
+        for lot in relevant:
+            if lot.lot_type != LotType.buy:
+                continue
+            if lot.instrument_id:
+                if lot.instrument_id in valuations:
+                    continue  # statement value supersedes computed value
+                key = (lot.account_id, lot.instrument_id)
+                g = grouped.setdefault(key, {"quantity": Decimal("0"), "cost_basis": Decimal("0")})
+                g["quantity"] += lot.quantity
+                g["cost_basis"] += lot.quantity * lot.price + lot.fees
+            else:
+                g = cash_grouped.setdefault(
+                    lot.account_id, {"quantity": Decimal("0"), "cost_basis": Decimal("0")}
+                )
+                g["quantity"] += lot.quantity
+                g["cost_basis"] += lot.quantity * lot.price
+
+        price_cache: dict[int, InstrumentPrice | None] = {}
+        for (account_id, instrument_id), g in grouped.items():
+            if instrument_id not in price_cache:
+                price_result = await self.session.execute(
+                    select(InstrumentPrice)
+                    .where(
+                        InstrumentPrice.instrument_id == instrument_id,
+                        InstrumentPrice.date <= as_of,
+                    )
+                    .order_by(InstrumentPrice.date.desc())
+                    .limit(1)
+                )
+                price_cache[instrument_id] = price_result.scalar_one_or_none()
+            price_row = price_cache[instrument_id]
+            positions.append(PositionSnapshot(
+                account_id=account_id,
+                instrument_id=instrument_id,
+                quantity=g["quantity"],
+                cost_basis=g["cost_basis"],
+                price=price_row.close if price_row else None,
+                price_date=price_row.date if price_row else None,
+                market_value=g["quantity"] * price_row.close if price_row else None,
+                source="buy",
+            ))
+
+        for account_id, g in cash_grouped.items():
+            positions.append(PositionSnapshot(
+                account_id=account_id,
+                instrument_id=None,
+                quantity=g["quantity"],
+                cost_basis=g["cost_basis"],
+                price=None,
+                price_date=None,
+                market_value=g["cost_basis"],
+                source="cash",
+            ))
+
+        return positions
+
     # ── Performance (TWR + XIRR) ──────────────────────────────────────────
 
     async def get_performance(
@@ -174,13 +305,15 @@ class InvestmentService:
         today = datetime.date.today()
         total_invested = Decimal("0")
         cashflows: list[CashFlow] = []
-        current_value = Decimal("0")
 
-        # Latest statement valuation per instrument: authoritative current value,
-        # but NOT a cash movement — never in total_invested or the XIRR cashflows.
-        valuations = self._latest_valuations(lots)
-        for v in valuations.values():
-            current_value += v.quantity * v.price
+        # Current value comes from the shared positions helper — only instrument
+        # positions count (cash-only buy lots are a networth-only concept).
+        positions = await self._compute_positions(lots, today)
+        priced = (
+            p.market_value for p in positions
+            if p.instrument_id is not None and p.market_value is not None
+        )
+        current_value = sum(priced, Decimal("0"))
 
         for lot in lots:
             cost = lot.quantity * lot.price + lot.fees
@@ -192,25 +325,6 @@ class InvestmentService:
                 cashflows.append(CashFlow(date=lot.settled_at, amount=float(proceeds)))
             elif lot.lot_type == LotType.dividend:
                 cashflows.append(CashFlow(date=lot.settled_at, amount=float(lot.price)))
-
-            # Current market value (skipped when a statement valuation supersedes it)
-            if (
-                lot.instrument_id
-                and lot.lot_type == LotType.buy
-                and lot.instrument_id not in valuations
-            ):
-                price_result = await self.session.execute(
-                    select(InstrumentPrice)
-                    .where(
-                        InstrumentPrice.instrument_id == lot.instrument_id,
-                        InstrumentPrice.date <= today,
-                    )
-                    .order_by(InstrumentPrice.date.desc())
-                    .limit(1)
-                )
-                latest_price = price_result.scalar_one_or_none()
-                if latest_price:
-                    current_value += lot.quantity * latest_price.close
 
         if current_value > Decimal("0"):
             cashflows.append(CashFlow(date=today, amount=float(current_value)))
@@ -252,50 +366,42 @@ class InvestmentService:
 
         total_value = Decimal("0")
 
-        # Latest statement valuation per instrument supersedes buy-lot math.
-        valuations = self._latest_valuations(lots)
+        from app.domains.accounts.models import Account, WrapperType
 
-        for lot in lots:
-            if not lot.instrument_id:
-                continue
-            inst = await self.session.get(Instrument, lot.instrument_id)
-            if not inst:
+        positions = await self._compute_positions(lots, today)
+        instrument_cache: dict[int, Instrument] = {}
+        account_cache: dict[int, Account] = {}
+
+        for p in positions:
+            if p.instrument_id is None or p.market_value is None:
                 continue
 
-            if lot.lot_type == LotType.valuation:
-                if valuations.get(lot.instrument_id) is not lot:
-                    continue  # superseded by a newer statement
-                market_value = lot.quantity * lot.price
-            else:
-                if lot.instrument_id in valuations:
-                    continue  # statement value supersedes computed value
-                price_result = await self.session.execute(
-                    select(InstrumentPrice)
-                    .where(
-                        InstrumentPrice.instrument_id == lot.instrument_id,
-                        InstrumentPrice.date <= today,
-                    )
-                    .order_by(InstrumentPrice.date.desc())
-                    .limit(1)
-                )
-                latest_price = price_result.scalar_one_or_none()
-                if not latest_price:
+            inst = instrument_cache.get(p.instrument_id)
+            if inst is None:
+                inst = await self.session.get(Instrument, p.instrument_id)
+                if inst is None:
                     continue
-                market_value = lot.quantity * latest_price.close
+                instrument_cache[p.instrument_id] = inst
 
+            market_value = p.market_value
             total_value += market_value
 
-            cls = inst.asset_class.value if inst.asset_class else "other"
+            # asset_class/wrapper_type columns are plain String (not SQLAlchemy
+            # Enum), so a DB round-trip yields a raw str, not the enum member —
+            # normalize via the enum's value-lookup constructor before .value.
+            cls = AssetClass(inst.asset_class).value if inst.asset_class else "other"
             region = inst.region or "unknown"
 
             holdings_by_class[cls] = holdings_by_class.get(cls, Decimal("0")) + market_value
             holdings_by_region[region] = holdings_by_region.get(region, Decimal("0")) + market_value
 
-            # Wrapper type from account
-            from app.domains.accounts.models import Account
-            account = await self.session.get(Account, lot.account_id)
+            account = account_cache.get(p.account_id)
+            if account is None:
+                account = await self.session.get(Account, p.account_id)
+                if account is not None:
+                    account_cache[p.account_id] = account
             if account and account.wrapper_type:
-                wt = account.wrapper_type.value
+                wt = WrapperType(account.wrapper_type).value
                 holdings_by_wrapper[wt] = holdings_by_wrapper.get(wt, Decimal("0")) + market_value
 
         # Targets
@@ -334,3 +440,134 @@ class InvestmentService:
             else:
                 self.session.add(TargetAllocation(asset_class=cls, target_pct=pct))
         await self.session.flush()
+
+    # ── Holdings (composite add-by-ISIN + aggregated positions) ─────────────
+
+    async def add_holding(self, body: HoldingCreateIn) -> HoldingOut:
+        """Resolve/create the instrument by ISIN, record a buy lot, and stamp
+        today's (or the given) price so the position shows correctly without
+        waiting for the daily price-fetch job."""
+        settled_at = body.settled_at or datetime.date.today()
+        instrument = await self.create_instrument(InstrumentCreateIn(
+            isin=body.isin,
+            ticker=body.ticker,
+            name=body.name or body.ticker or body.isin,
+            asset_class=body.asset_class,
+            currency=body.currency or "EUR",
+        ))
+        lot = await self.create_lot(LotCreateIn(
+            account_id=body.account_id,
+            instrument_id=instrument.id,
+            lot_type=LotType.buy,
+            quantity=body.quantity,
+            price=body.price,
+            fees=body.fees,
+            currency=instrument.currency,
+            settled_at=settled_at,
+            notes=body.notes,
+        ))
+        await self.create_price(PriceCreateIn(
+            instrument_id=instrument.id,
+            date=settled_at,
+            close=body.price,
+            currency=instrument.currency,
+        ))
+        return HoldingOut(lot=lot, instrument=instrument)
+
+    async def get_holdings(self, scope: str = "household") -> HoldingsOut:
+        """Aggregate current positions (per account+instrument) for display."""
+        from app.domains.accounts.models import WrapperType
+        from app.domains.accounts.repository import AccountRepository, PersonRepository
+
+        person_repo = PersonRepository(self.session)
+        account_repo = AccountRepository(self.session)
+        persons = await person_repo.list_persons()
+        if scope == "household":
+            person_ids = [p.id for p in persons]
+        else:
+            try:
+                person_ids = [int(scope)]
+            except ValueError:
+                person_ids = [p.id for p in persons]
+
+        accounts = await account_repo.list_accounts(person_ids=person_ids, include_archived=False)
+        allowed_account_ids = {a.id for a in accounts}
+        if not allowed_account_ids:
+            return HoldingsOut(total_value=Decimal("0"), rows=[])
+
+        lots_result = await self.session.execute(
+            select(InvestmentLot).where(
+                InvestmentLot.lot_type.in_([LotType.buy, LotType.valuation]),
+                InvestmentLot.account_id.in_(allowed_account_ids),
+            )
+        )
+        lots = list(lots_result.scalars())
+        today = datetime.date.today()
+        positions = [
+            p for p in await self._compute_positions(lots, today) if p.instrument_id is not None
+        ]
+
+        total_value = sum(
+            (p.market_value for p in positions if p.market_value is not None), Decimal("0")
+        )
+
+        account_map = {a.id: a for a in accounts}
+        person_map = {p.id: p for p in persons}
+        instrument_cache: dict[int, Instrument] = {}
+
+        rows: list[HoldingRowOut] = []
+        for p in positions:
+            account = account_map.get(p.account_id)
+            if account is None:
+                continue
+            inst = instrument_cache.get(p.instrument_id)
+            if inst is None:
+                inst = await self.session.get(Instrument, p.instrument_id)
+                if inst is None:
+                    continue
+                instrument_cache[p.instrument_id] = inst
+
+            owner = person_map.get(account.owner_id)
+            joint_owner = person_map.get(account.joint_owner_id) if account.joint_owner_id else None
+
+            gain_loss: Decimal | None = None
+            gain_loss_pct: float | None = None
+            if p.cost_basis is not None and p.market_value is not None:
+                gain_loss = p.market_value - p.cost_basis
+                if p.cost_basis:
+                    gain_loss_pct = float(gain_loss / p.cost_basis * 100)
+
+            weight_pct = (
+                (p.market_value / total_value * 100)
+                if p.market_value is not None and total_value
+                else Decimal("0")
+            )
+
+            rows.append(HoldingRowOut(
+                account_id=account.id,
+                account_name=account.name,
+                wrapper_type=(
+                    WrapperType(account.wrapper_type).value if account.wrapper_type else None
+                ),
+                owner_name=owner.name if owner else "",
+                joint_owner_name=joint_owner.name if joint_owner else None,
+                ownership_pct=account.ownership_pct,
+                instrument_id=inst.id,
+                isin=inst.isin,
+                ticker=inst.ticker,
+                name=inst.name,
+                asset_class=inst.asset_class,
+                quantity=p.quantity,
+                price=p.price,
+                price_date=p.price_date,
+                market_value=p.market_value,
+                cost_basis=p.cost_basis,
+                gain_loss=gain_loss,
+                gain_loss_pct=gain_loss_pct,
+                weight_pct=weight_pct,
+                source=p.source,
+            ))
+
+        rows.sort(key=lambda r: (r.market_value is None, -(r.market_value or Decimal("0"))))
+
+        return HoldingsOut(total_value=total_value, rows=rows)

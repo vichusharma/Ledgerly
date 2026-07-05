@@ -6,11 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.domains.investments.schemas import (
-    AllocationOut, InstrumentCreateIn, InstrumentOut,
+    AllocationOut, HoldingCreateIn, HoldingOut, HoldingsOut,
+    InstrumentCreateIn, InstrumentLookupOut, InstrumentOut,
     LotCreateIn, LotOut, PerformanceOut, PriceCreateIn, PriceOut,
     TargetAllocationIn,
 )
 from app.domains.investments.service import InvestmentService
+from app.infra.price_provider import get_price_provider
 
 router = APIRouter(tags=["investments"], dependencies=[Depends(get_current_user)])
 
@@ -25,6 +27,33 @@ async def list_instruments(db: AsyncSession = Depends(get_db)) -> list[Instrumen
 @router.post("/instruments", response_model=InstrumentOut, status_code=201)
 async def create_instrument(body: InstrumentCreateIn, db: AsyncSession = Depends(get_db)) -> InstrumentOut:
     return await InvestmentService(db).create_instrument(body)
+
+
+@router.get("/instruments/lookup", response_model=InstrumentLookupOut)
+async def lookup_instrument(isin: str = Query(...), db: AsyncSession = Depends(get_db)) -> InstrumentLookupOut:
+    """Read-only preview for the add-holding form — never writes to the DB.
+
+    Registered before /instruments/{instrument_id} so "lookup" isn't swallowed
+    as a path param.
+    """
+    provider = await get_price_provider(db)
+    if provider is None:
+        raise HTTPException(404, "Price lookup is disabled or not configured.")
+    try:
+        result = await provider.lookup(isin)
+    except NotImplementedError:
+        raise HTTPException(404, "Price lookup is disabled or not configured.")
+    if result is None:
+        raise HTTPException(404, "No match found for this ISIN.")
+    return InstrumentLookupOut(
+        isin=isin,
+        symbol=result.symbol,
+        name=result.name,
+        ticker=result.ticker,
+        currency=result.currency,
+        price=result.price,
+        price_date=result.price_date,
+    )
 
 
 @router.get("/instruments/{instrument_id}", response_model=InstrumentOut)
@@ -99,6 +128,21 @@ async def set_target_allocation(
     body: TargetAllocationIn, db: AsyncSession = Depends(get_db)
 ) -> None:
     await InvestmentService(db).set_target_allocation(body)
+
+
+# ── Holdings ──────────────────────────────────────────────────────────────────
+
+@router.post("/portfolio/holdings", response_model=HoldingOut, status_code=201)
+async def add_holding(body: HoldingCreateIn, db: AsyncSession = Depends(get_db)) -> HoldingOut:
+    return await InvestmentService(db).add_holding(body)
+
+
+@router.get("/portfolio/holdings", response_model=HoldingsOut)
+async def portfolio_holdings(
+    scope: str = "household",
+    db: AsyncSession = Depends(get_db),
+) -> HoldingsOut:
+    return await InvestmentService(db).get_holdings(scope=scope)
 
 
 # ── Tax hints (P3) ────────────────────────────────────────────────────────────

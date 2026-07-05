@@ -7,11 +7,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, get_db
 from app.domains.accounts.schemas import (
     AccountCreateIn, AccountOut, AccountUpdateIn,
+    HouseholdSettingsOut, HouseholdSettingsUpdateIn,
     PersonCreateIn, PersonOut,
 )
 from app.domains.accounts.service import AccountService
 
 router = APIRouter(tags=["accounts"], dependencies=[Depends(get_current_user)])
+
+
+# ── Household settings ──────────────────────────────────────────────────────
+
+@router.get("/settings/price-lookup", response_model=HouseholdSettingsOut)
+async def get_price_lookup_setting(db: AsyncSession = Depends(get_db)) -> HouseholdSettingsOut:
+    return await AccountService(db).get_household_settings()
+
+
+@router.put("/settings/price-lookup", response_model=HouseholdSettingsOut)
+async def set_price_lookup_setting(
+    body: HouseholdSettingsUpdateIn, db: AsyncSession = Depends(get_db)
+) -> HouseholdSettingsOut:
+    return await AccountService(db).update_household_settings(body)
 
 
 # ── Persons ──────────────────────────────────────────────────────────────────

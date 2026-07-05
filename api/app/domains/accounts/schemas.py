@@ -8,6 +8,14 @@ from pydantic import BaseModel, Field
 from app.domains.accounts.models import AccountType, WrapperType
 
 
+class HouseholdSettingsOut(BaseModel):
+    price_lookup_enabled: bool
+
+
+class HouseholdSettingsUpdateIn(BaseModel):
+    price_lookup_enabled: bool
+
+
 class PersonCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     is_primary: bool = False

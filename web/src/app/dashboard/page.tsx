@@ -6,7 +6,7 @@ import { NetWorthHero } from "@/components/finance/NetWorthHero";
 import { RecentActivity } from "@/components/finance/RecentActivity";
 import { NetWorthChart } from "@/components/charts/NetWorthChart";
 import { CashflowChart } from "@/components/charts/CashflowChart";
-import { AllocationDonut } from "@/components/charts/AllocationDonut";
+import { AllocationChart } from "@/components/charts/AllocationChart";
 import {
   useNetWorth, useNetWorthSeries, usePortfolioPerformance,
   usePortfolioAllocation, useTransactionAnalytics,
@@ -70,7 +70,7 @@ export default function DashboardPage() {
           )}
           {alloc?.by_class?.length > 0 && (
             <div className="col-span-12 lg:col-span-5">
-              <AllocationDonut slices={alloc.by_class} title={px.allocationTitle} />
+              <AllocationChart slices={alloc.by_class} title={px.allocationTitle} variant="compact" />
             </div>
           )}
 

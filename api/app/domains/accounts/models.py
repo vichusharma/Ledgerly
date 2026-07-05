@@ -40,6 +40,7 @@ class Household(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    price_lookup_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
 
     persons: Mapped[list["Person"]] = relationship("Person", back_populates="household")
 

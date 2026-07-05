@@ -60,14 +60,14 @@ async def _run_daily_price_fetch() -> None:
     from app.infra.db import async_session_factory
     from app.infra.price_provider import get_price_provider
 
-    provider = get_price_provider()
-    if provider is None:
-        return  # Price provider disabled (default)
-
     today = datetime.date.today()
-    logger.info("Daily price fetch: fetching EOD prices for %s…", today)
 
     async with async_session_factory() as session:
+        provider = await get_price_provider(session)
+        if provider is None:
+            return  # Price provider disabled (default)
+
+        logger.info("Daily price fetch: fetching EOD prices for %s…", today)
         svc = InvestmentService(session)
         instruments = await svc.list_instruments()
         if not instruments:

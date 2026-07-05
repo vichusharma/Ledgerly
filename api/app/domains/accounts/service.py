@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.accounts.repository import AccountRepository, PersonRepository
 from app.domains.accounts.schemas import (
-    AccountCreateIn, AccountOut, AccountUpdateIn, PersonCreateIn, PersonOut,
+    AccountCreateIn, AccountOut, AccountUpdateIn,
+    HouseholdSettingsOut, HouseholdSettingsUpdateIn, PersonCreateIn, PersonOut,
 )
 
 
@@ -76,3 +77,15 @@ class AccountService:
 
     async def archive_account(self, account_id: int) -> None:
         await self._account_repo.archive_account(account_id)
+
+    async def get_household_settings(self) -> HouseholdSettingsOut:
+        household = await self._person_repo.get_household()
+        if household is None:
+            raise ValueError("No household configured. Call /auth/setup first.")
+        return HouseholdSettingsOut(price_lookup_enabled=household.price_lookup_enabled)
+
+    async def update_household_settings(
+        self, body: HouseholdSettingsUpdateIn
+    ) -> HouseholdSettingsOut:
+        household = await self._person_repo.update_price_lookup(body.price_lookup_enabled)
+        return HouseholdSettingsOut(price_lookup_enabled=household.price_lookup_enabled)

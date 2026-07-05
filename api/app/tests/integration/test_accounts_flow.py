@@ -14,6 +14,18 @@ async def _setup_and_login(client: AsyncClient) -> None:
     await client.post("/api/v1/auth/login", json={"password": PASSWORD})
 
 
+async def test_price_lookup_setting_defaults_off_and_can_be_toggled(client: AsyncClient) -> None:
+    await _setup_and_login(client)
+    initial = (await client.get("/api/v1/settings/price-lookup")).json()
+    assert initial["price_lookup_enabled"] is False
+
+    enabled = (await client.put("/api/v1/settings/price-lookup", json={"price_lookup_enabled": True})).json()
+    assert enabled["price_lookup_enabled"] is True
+
+    persisted = (await client.get("/api/v1/settings/price-lookup")).json()
+    assert persisted["price_lookup_enabled"] is True
+
+
 async def test_create_person(client: AsyncClient) -> None:
     await _setup_and_login(client)
     res = await client.post("/api/v1/persons", json={"name": "Antoine", "is_primary": True})

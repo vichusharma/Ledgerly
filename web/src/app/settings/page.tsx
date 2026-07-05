@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { usePersons } from "@/lib/api/hooks";
+import { usePersons, usePriceLookupSetting, useSetPriceLookupSetting } from "@/lib/api/hooks";
 import { useLanguage } from "@/lib/context/LanguageContext";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { apiClient } from "@/lib/api/client";
@@ -12,6 +12,8 @@ import { LabelManager } from "@/components/settings/LabelManager";
 
 export default function SettingsPage() {
   const { data: persons = [], refetch } = usePersons();
+  const { data: priceLookup } = usePriceLookupSetting();
+  const setPriceLookup = useSetPriceLookupSetting();
   const [newPersonName, setNewPersonName] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -161,6 +163,33 @@ export default function SettingsPage() {
         {/* Labels & rules */}
         <section className={sectionClass}>
           <LabelManager />
+        </section>
+
+        {/* Price data (external, opt-in) */}
+        <section className={`${sectionClass} space-y-3`}>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-foreground">{sx.priceDataTitle}</h2>
+          <div className="flex items-center justify-between py-2">
+            <div className="pr-4">
+              <p className="text-sm text-slate-700 dark:text-foreground">{sx.priceDataLabel}</p>
+              <p className="text-xs text-slate-400 dark:text-muted-foreground mt-0.5">{sx.priceDataDesc}</p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={priceLookup?.price_lookup_enabled ?? false}
+              onClick={() => setPriceLookup.mutate(!(priceLookup?.price_lookup_enabled ?? false))}
+              className={cn(
+                "relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors",
+                priceLookup?.price_lookup_enabled ? "bg-brand" : "bg-slate-200 dark:bg-secondary"
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                  priceLookup?.price_lookup_enabled ? "translate-x-6" : "translate-x-1"
+                )}
+              />
+            </button>
+          </div>
         </section>
 
         {/* Data & privacy */}

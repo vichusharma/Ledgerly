@@ -21,6 +21,14 @@ class PersonRepository:
         await self.session.flush()
         return household
 
+    async def update_price_lookup(self, enabled: bool) -> Household:
+        household = await self.get_household()
+        if household is None:
+            raise ValueError("No household configured.")
+        household.price_lookup_enabled = enabled
+        await self.session.flush()
+        return household
+
     async def list_persons(self) -> list[Person]:
         result = await self.session.execute(select(Person))
         return list(result.scalars().all())

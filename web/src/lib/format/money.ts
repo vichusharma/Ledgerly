@@ -49,9 +49,11 @@ export function formatDate(
 }
 
 /** Format a percentage — e.g. 12,34 % (fr) or 12.34% (en) */
-export function formatPct(value: number | null | undefined, decimals = 2): string {
+export function formatPct(value: number | string | null | undefined, decimals = 2): string {
   if (value == null) return "—";
-  return `${value.toFixed(decimals).replace(".", _locale === "fr" ? "," : ".")} %`;
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (Number.isNaN(num)) return "—";
+  return `${num.toFixed(decimals).replace(".", _locale === "fr" ? "," : ".")} %`;
 }
 
 /** Compact large numbers — e.g. 1,2 M€ */

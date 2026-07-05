@@ -4,7 +4,7 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.domains.investments.models import AssetClass, LotType
 
@@ -103,3 +103,60 @@ class AllocationOut(BaseModel):
 
 class TargetAllocationIn(BaseModel):
     allocations: list[dict[str, object]]  # [{"asset_class": "equity", "target_pct": 70}]
+
+
+class InstrumentLookupOut(BaseModel):
+    isin: str
+    symbol: str
+    name: str
+    ticker: str | None
+    currency: str
+    price: Decimal
+    price_date: datetime.date
+
+
+class HoldingCreateIn(BaseModel):
+    isin: str = Field(min_length=1, max_length=12)
+    quantity: Decimal
+    account_id: int
+    price: Decimal
+    settled_at: datetime.date | None = None
+    name: str | None = None
+    ticker: str | None = None
+    currency: str | None = None
+    asset_class: AssetClass = AssetClass.equity
+    fees: Decimal = Decimal("0")
+    notes: str | None = None
+
+
+class HoldingOut(BaseModel):
+    lot: LotOut
+    instrument: InstrumentOut
+
+
+class HoldingRowOut(BaseModel):
+    account_id: int
+    account_name: str
+    wrapper_type: str | None
+    owner_name: str
+    joint_owner_name: str | None
+    ownership_pct: Decimal
+    instrument_id: int
+    isin: str | None
+    ticker: str | None
+    name: str
+    asset_class: AssetClass
+    quantity: Decimal
+    price: Decimal | None
+    price_date: datetime.date | None
+    market_value: Decimal | None
+    cost_basis: Decimal | None
+    gain_loss: Decimal | None
+    gain_loss_pct: float | None
+    weight_pct: Decimal
+    source: str
+
+
+class HoldingsOut(BaseModel):
+    total_value: Decimal
+    rows: list[HoldingRowOut]
