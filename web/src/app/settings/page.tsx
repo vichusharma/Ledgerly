@@ -9,6 +9,7 @@ import { apiClient } from "@/lib/api/client";
 import { Sun, Moon, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LabelManager } from "@/components/settings/LabelManager";
+import { TaxProfileSection } from "@/components/settings/TaxProfileSection";
 
 export default function SettingsPage() {
   const { data: persons = [], refetch } = usePersons();
@@ -158,6 +159,11 @@ export default function SettingsPage() {
             </button>
           </div>
           {msg && <p className="text-xs text-slate-400 dark:text-muted-foreground">{msg}</p>}
+        </section>
+
+        {/* Tax profile */}
+        <section className={sectionClass}>
+          <TaxProfileSection />
         </section>
 
         {/* Labels & rules */}

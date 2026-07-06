@@ -35,6 +35,11 @@ class WrapperType(str, enum.Enum):
     OTHER = "OTHER"
 
 
+class ImpatriateElectionMethod(str, enum.Enum):
+    flat_30 = "flat_30"
+    specific_premium = "specific_premium"
+
+
 class Household(Base):
     __tablename__ = "households"
 
@@ -52,6 +57,13 @@ class Person(Base):
     household_id: Mapped[int] = mapped_column(ForeignKey("households.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # French expat "régime des impatriés" (Art. 155 B CGI) — per-person, generic toggle.
+    impatriate_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    impatriate_arrival_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    impatriate_election_method: Mapped[ImpatriateElectionMethod | None] = mapped_column(
+        String(20), nullable=True
+    )
 
     household: Mapped["Household"] = relationship("Household", back_populates="persons")
     accounts: Mapped[list["Account"]] = relationship(

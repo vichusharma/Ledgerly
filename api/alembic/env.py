@@ -17,6 +17,8 @@ import app.domains.liabilities.models  # noqa: F401
 import app.domains.networth.models  # noqa: F401
 import app.domains.scenarios.models  # noqa: F401
 import app.domains.planning.models  # noqa: F401
+import app.domains.salary.models  # noqa: F401
+import app.domains.tax.models  # noqa: F401
 from app.infra.settings import get_settings
 
 config = context.config

@@ -426,3 +426,75 @@ export const useSaveValuation = () => {
     },
   });
 };
+
+// ── Salary / payslips ───────────────────────────────────────────────────────
+
+export const usePayslips = (personId?: number, year?: number) =>
+  useQuery({
+    queryKey: ["payslips", personId, year],
+    queryFn: () => {
+      const params: Record<string, number> = {};
+      if (personId) params.person_id = personId;
+      if (year) params.year = year;
+      return apiClient.get("/salary/payslips", { params }).then(r => r.data);
+    },
+  });
+
+// Extract candidate fields from a payslip PDF. No DB write.
+export const usePreviewPayslip = () =>
+  useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/salary/payslips/preview", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+  });
+
+export const useSavePayslip = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: object) => apiClient.post("/salary/payslips", body).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["payslips"] }),
+  });
+};
+
+export const useDeletePayslip = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/salary/payslips/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["payslips"] }),
+  });
+};
+
+// ── Tax profile (Feature I2 — facts only, no tax computation yet) ──────────
+
+export const useTaxProfile = (personId?: number) =>
+  useQuery({
+    queryKey: ["tax", "profile", personId],
+    queryFn: () => apiClient.get(`/tax/profile/${personId}`).then(r => r.data),
+    enabled: personId != null,
+  });
+
+export const useSetTaxProfile = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ personId, body }: { personId: number; body: object }) =>
+      apiClient.put(`/tax/profile/${personId}`, body).then(r => r.data),
+    onSuccess: (_data, { personId }) =>
+      qc.invalidateQueries({ queryKey: ["tax", "profile", personId] }),
+  });
+};
+
+export const useHouseholdTaxSettings = () =>
+  useQuery({
+    queryKey: ["tax", "household-settings"],
+    queryFn: () => apiClient.get("/tax/household-settings").then(r => r.data),
+  });
+
+export const useSetHouseholdTaxSettings = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: object) =>
+      apiClient.put("/tax/household-settings", body).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tax", "household-settings"] }),
+  });
+};

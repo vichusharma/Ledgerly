@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, PieChart, CreditCard, Receipt,
-  TrendingUp, Target, Wallet, Upload, Settings, Landmark,
+  TrendingUp, Target, Wallet, Upload, Settings, Landmark, Banknote,
   Command, LogOut, ChevronLeft, ChevronRight, Sun, Moon, Globe,
 } from "lucide-react";
 import { CommandPalette } from "./CommandPalette";
@@ -34,6 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/scenarios/monte-carlo", icon: TrendingUp,       label: nav.monteCarlo },
     { href: "/goals",                 icon: Target,           label: nav.goals },
     { href: "/pension",               icon: Landmark,         label: nav.pension },
+    { href: "/salary",                icon: Banknote,         label: nav.salary },
     { href: "/accounts",              icon: Wallet,           label: nav.accounts },
     { href: "/import",                icon: Upload,           label: nav.import },
     { href: "/settings",              icon: Settings,         label: nav.settings },
