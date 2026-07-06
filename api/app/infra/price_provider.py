@@ -250,6 +250,31 @@ class YahooFinancePriceProvider(BasePriceProvider):
         except (KeyError, IndexError, TypeError, ValueError):
             return None
 
+    async def _fetch_chart_eur(
+        self, symbol: str, client, crumb: str | None
+    ) -> tuple[Decimal, str] | None:
+        """Like `_fetch_chart`, but converts non-EUR quotes to EUR first.
+
+        Every stored price/lot in this app is assumed to be EUR — but some
+        Yahoo quotes for European insurance-wrapped fund share classes come
+        back in a different trading currency than the EUR one on the
+        household's statement (e.g. `LU0000000JPY` resolves to a JPY share
+        class). Rather than threading currency through every market-value
+        computation downstream, conversion happens once, here, using Yahoo's
+        own FX-pair ticker convention (`"JPYEUR=X"` = value of 1 JPY in EUR).
+        """
+        chart = await self._fetch_chart(symbol, client, crumb)
+        if chart is None:
+            return None
+        price, currency = chart
+        if currency == "EUR":
+            return price, currency
+        fx = await self._fetch_chart(f"{currency}EUR=X", client, crumb)
+        if fx is None:
+            return None
+        rate, _ = fx
+        return price * rate, "EUR"
+
     async def fetch_prices(
         self,
         isins: list[str],
@@ -266,7 +291,7 @@ class YahooFinancePriceProvider(BasePriceProvider):
                     quote = await self._resolve_symbol(isin, client, crumb)
                     if not quote:
                         return
-                    chart = await self._fetch_chart(quote["symbol"], client, crumb)
+                    chart = await self._fetch_chart_eur(quote["symbol"], client, crumb)
                     if not chart:
                         return
                     price, _currency = chart
@@ -287,7 +312,7 @@ class YahooFinancePriceProvider(BasePriceProvider):
             quote = await self._resolve_symbol(isin, client, crumb)
             if not quote:
                 return None
-            chart = await self._fetch_chart(quote["symbol"], client, crumb)
+            chart = await self._fetch_chart_eur(quote["symbol"], client, crumb)
             if not chart:
                 return None
             price, currency = chart
@@ -312,7 +337,7 @@ class YahooFinancePriceProvider(BasePriceProvider):
 
         async def _one(quote: dict, client: httpx.AsyncClient, crumb: str | None) -> None:
             async with semaphore:
-                chart = await self._fetch_chart(quote["symbol"], client, crumb)
+                chart = await self._fetch_chart_eur(quote["symbol"], client, crumb)
                 if not chart:
                     return
                 price, currency = chart
@@ -336,7 +361,7 @@ class YahooFinancePriceProvider(BasePriceProvider):
 
         async with httpx.AsyncClient(headers=self._HEADERS) as client:
             crumb = await self._get_crumb(client)
-            chart = await self._fetch_chart(symbol, client, crumb)
+            chart = await self._fetch_chart_eur(symbol, client, crumb)
             return chart[0] if chart else None
 
 
