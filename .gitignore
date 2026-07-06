@@ -31,3 +31,6 @@ Thumbs.db
 # Local agent context (see CLAUDE.md) — machine-specific, never commit
 REPO_STATE.md
 SESSION_SUMMARY.md
+
+# Private local-only samples (real financial documents) — never commit
+local_samples/
