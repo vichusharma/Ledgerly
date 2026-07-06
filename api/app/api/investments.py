@@ -1,15 +1,15 @@
 """Investments router — instruments, lots, prices, performance, allocation."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.domains.investments.schemas import (
-    AllocationOut, HoldingCreateIn, HoldingOut, HoldingsOut,
-    InstrumentCreateIn, InstrumentLookupOut, InstrumentOut,
-    LotCreateIn, LotOut, PerformanceOut, PriceCreateIn, PriceOut,
-    TargetAllocationIn,
+    AllocationOut, HoldingCreateIn, HoldingOut, HoldingQuantityUpdateIn,
+    HoldingRowOut, HoldingsOut, InstrumentCreateIn, InstrumentLookupOut,
+    InstrumentOut, InstrumentSearchResultOut, LotCreateIn, LotOut,
+    PerformanceOut, PriceCreateIn, PriceOut, TargetAllocationIn,
 )
 from app.domains.investments.service import InvestmentService
 from app.infra.price_provider import get_price_provider
@@ -53,7 +53,29 @@ async def lookup_instrument(isin: str = Query(...), db: AsyncSession = Depends(g
         currency=result.currency,
         price=result.price,
         price_date=result.price_date,
+        asset_class=result.asset_class,
     )
+
+
+@router.get("/instruments/search", response_model=list[InstrumentSearchResultOut])
+async def search_instruments(q: str = Query(..., min_length=2), db: AsyncSession = Depends(get_db)) -> list[InstrumentSearchResultOut]:
+    """Name-search fallback for when `lookup(isin)` finds nothing — some
+    funds' ISINs aren't indexed by the provider even though the fund is
+    findable by name. Registered before /instruments/{instrument_id}."""
+    provider = await get_price_provider(db)
+    if provider is None:
+        raise HTTPException(404, "Price lookup is disabled or not configured.")
+    try:
+        results = await provider.search(q)
+    except NotImplementedError:
+        raise HTTPException(404, "Search is not supported by the configured price provider.")
+    return [
+        InstrumentSearchResultOut(
+            symbol=r.symbol, name=r.name, currency=r.currency,
+            price=r.price, price_date=r.price_date, asset_class=r.asset_class,
+        )
+        for r in results
+    ]
 
 
 @router.get("/instruments/{instrument_id}", response_model=InstrumentOut)
@@ -143,6 +165,21 @@ async def portfolio_holdings(
     db: AsyncSession = Depends(get_db),
 ) -> HoldingsOut:
     return await InvestmentService(db).get_holdings(scope=scope)
+
+
+@router.put("/portfolio/holdings/quantity", response_model=HoldingRowOut | None)
+async def update_holding_quantity(
+    body: HoldingQuantityUpdateIn, db: AsyncSession = Depends(get_db)
+) -> HoldingRowOut | Response:
+    """Edit an existing ISIN-backed holding's quantity in place — records a
+    buy/sell lot for the delta at a freshly looked-up market price."""
+    try:
+        row = await InvestmentService(db).update_holding_quantity(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if row is None:
+        return Response(status_code=204)
+    return row
 
 
 # ── Tax hints (P3) ────────────────────────────────────────────────────────────

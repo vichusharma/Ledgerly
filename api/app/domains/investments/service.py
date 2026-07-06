@@ -19,8 +19,8 @@ from app.domains.investments.models import (
 )
 from app.domains.investments.schemas import (
     AllocationOut, AllocationSliceOut, HoldingCreateIn, HoldingOut,
-    HoldingRowOut, HoldingsOut, InstrumentCreateIn, InstrumentOut,
-    LotCreateIn, LotOut, PerformanceOut, PerformanceSeriesPoint,
+    HoldingQuantityUpdateIn, HoldingRowOut, HoldingsOut, InstrumentCreateIn,
+    InstrumentOut, LotCreateIn, LotOut, PerformanceOut, PerformanceSeriesPoint,
     PriceCreateIn, PriceOut, TargetAllocationIn,
 )
 
@@ -194,7 +194,8 @@ class InvestmentService:
         """
         relevant = [
             lot for lot in lots
-            if lot.lot_type in (LotType.buy, LotType.valuation) and lot.settled_at <= as_of
+            if lot.lot_type in (LotType.buy, LotType.sell, LotType.valuation)
+            and lot.settled_at <= as_of
         ]
         valuations = self._latest_valuations(relevant)
 
@@ -212,27 +213,50 @@ class InvestmentService:
             for lot in valuations.values()
         ]
 
+        # Average-cost accounting (not FIFO/LIFO tax-lot matching): buys and
+        # sells for the same (account, instrument) are netted into a single
+        # quantity/cost-basis pair, with sells reducing cost basis at the
+        # average cost per unit of everything bought so far. Sufficient for a
+        # personal net-worth tool; not a substitute for real capital-gains
+        # tax-lot tracking.
         grouped: dict[tuple[int, int], dict[str, Decimal]] = {}
         cash_grouped: dict[int, dict[str, Decimal]] = {}
         for lot in relevant:
-            if lot.lot_type != LotType.buy:
-                continue
-            if lot.instrument_id:
-                if lot.instrument_id in valuations:
-                    continue  # statement value supersedes computed value
-                key = (lot.account_id, lot.instrument_id)
-                g = grouped.setdefault(key, {"quantity": Decimal("0"), "cost_basis": Decimal("0")})
-                g["quantity"] += lot.quantity
-                g["cost_basis"] += lot.quantity * lot.price + lot.fees
-            else:
+            if lot.lot_type == LotType.buy and lot.instrument_id is None:
                 g = cash_grouped.setdefault(
                     lot.account_id, {"quantity": Decimal("0"), "cost_basis": Decimal("0")}
                 )
                 g["quantity"] += lot.quantity
                 g["cost_basis"] += lot.quantity * lot.price
+                continue
+            if lot.lot_type not in (LotType.buy, LotType.sell) or not lot.instrument_id:
+                continue
+            if lot.instrument_id in valuations:
+                continue  # statement value supersedes computed value
+            key = (lot.account_id, lot.instrument_id)
+            g = grouped.setdefault(
+                key,
+                {
+                    "buy_quantity": Decimal("0"), "buy_cost_basis": Decimal("0"),
+                    "sell_quantity": Decimal("0"),
+                },
+            )
+            if lot.lot_type == LotType.buy:
+                g["buy_quantity"] += lot.quantity
+                g["buy_cost_basis"] += lot.quantity * lot.price + lot.fees
+            else:
+                g["sell_quantity"] += lot.quantity
 
         price_cache: dict[int, InstrumentPrice | None] = {}
         for (account_id, instrument_id), g in grouped.items():
+            net_quantity = g["buy_quantity"] - g["sell_quantity"]
+            if net_quantity <= 0:
+                continue  # fully (or over-)sold — no current position
+            avg_cost_per_unit = (
+                g["buy_cost_basis"] / g["buy_quantity"] if g["buy_quantity"] else Decimal("0")
+            )
+            cost_basis = avg_cost_per_unit * net_quantity
+
             if instrument_id not in price_cache:
                 price_result = await self.session.execute(
                     select(InstrumentPrice)
@@ -248,11 +272,11 @@ class InvestmentService:
             positions.append(PositionSnapshot(
                 account_id=account_id,
                 instrument_id=instrument_id,
-                quantity=g["quantity"],
-                cost_basis=g["cost_basis"],
+                quantity=net_quantity,
+                cost_basis=cost_basis,
                 price=price_row.close if price_row else None,
                 price_date=price_row.date if price_row else None,
-                market_value=g["quantity"] * price_row.close if price_row else None,
+                market_value=net_quantity * price_row.close if price_row else None,
                 source="buy",
             ))
 
@@ -353,7 +377,7 @@ class InvestmentService:
         lots_result = await self.session.execute(
             select(InvestmentLot).where(
                 InvestmentLot.lot_type.in_(
-                    [LotType.buy, LotType.contribution, LotType.valuation]
+                    [LotType.buy, LotType.sell, LotType.contribution, LotType.valuation]
                 )
             )
         )
@@ -474,6 +498,105 @@ class InvestmentService:
         ))
         return HoldingOut(lot=lot, instrument=instrument)
 
+    async def update_holding_quantity(
+        self, body: HoldingQuantityUpdateIn
+    ) -> HoldingRowOut | None:
+        """Edit a holding's quantity in place: records a `buy` (increase) or
+        `sell` (decrease) lot for the delta at a freshly looked-up market
+        price, so full buy/sell history and cost basis are preserved — this
+        is not a snapshot overwrite. Always refreshes the stamped price, even
+        when quantity is unchanged, so market value stays current.
+
+        Returns None only when the edit fully liquidates the position (new
+        quantity 0 — router → 204 No Content). All other failures (unknown
+        instrument, no ISIN, lookup unavailable) raise ValueError (router →
+        422) — this is the only method's sole "success but nothing to show"
+        outcome, so a None return is unambiguous.
+        """
+        from app.infra.price_provider import get_price_provider
+
+        instrument = await self.session.get(Instrument, body.instrument_id)
+        if instrument is None:
+            raise ValueError("Instrument not found.")
+        if not instrument.isin:
+            raise ValueError("Only ISIN-backed holdings can have their quantity edited.")
+
+        settled_at = body.settled_at or datetime.date.today()
+        today = datetime.date.today()
+
+        lots_result = await self.session.execute(
+            select(InvestmentLot).where(
+                InvestmentLot.account_id == body.account_id,
+                InvestmentLot.instrument_id == body.instrument_id,
+                InvestmentLot.lot_type.in_([LotType.buy, LotType.sell]),
+            )
+        )
+        lots = list(lots_result.scalars())
+        positions = await self._compute_positions(lots, today)
+        current_quantity = positions[0].quantity if positions else Decimal("0")
+
+        provider = await get_price_provider(self.session)
+        if provider is None:
+            raise ValueError(
+                "Enable automatic price lookup in Settings to update this holding."
+            )
+        price: Decimal | None = None
+        if instrument.ticker:
+            # Prefer the already-resolved symbol — some funds' ISINs aren't
+            # indexed by the provider's search at all (common for European
+            # insurance-wrapped share classes), even though the fund itself
+            # is reachable once a symbol has been found once via search().
+            try:
+                price = await provider.fetch_price_by_symbol(instrument.ticker)
+            except NotImplementedError:
+                price = None
+        if price is None:
+            result = await provider.lookup(instrument.isin)
+            price = result.price if result else None
+        if price is None:
+            raise ValueError(
+                "Couldn't fetch a current price for this holding. "
+                "Enable automatic price lookup in Settings, or re-add it via search if its ISIN isn't found."
+            )
+
+        delta = body.quantity - current_quantity
+        if delta > 0:
+            await self.create_lot(LotCreateIn(
+                account_id=body.account_id,
+                instrument_id=body.instrument_id,
+                lot_type=LotType.buy,
+                quantity=delta,
+                price=price,
+                currency=instrument.currency,
+                settled_at=settled_at,
+            ))
+        elif delta < 0:
+            await self.create_lot(LotCreateIn(
+                account_id=body.account_id,
+                instrument_id=body.instrument_id,
+                lot_type=LotType.sell,
+                quantity=-delta,
+                price=price,
+                currency=instrument.currency,
+                settled_at=settled_at,
+            ))
+
+        await self.create_price(PriceCreateIn(
+            instrument_id=instrument.id,
+            date=settled_at,
+            close=price,
+            currency=instrument.currency,
+        ))
+
+        from app.domains.networth.service import NetWorthService
+        await NetWorthService(self.session).take_snapshot()
+
+        holdings = await self.get_holdings("household")
+        for row in holdings.rows:
+            if row.account_id == body.account_id and row.instrument_id == body.instrument_id:
+                return row
+        return None  # fully sold via this edit — no position left to show
+
     async def get_holdings(self, scope: str = "household") -> HoldingsOut:
         """Aggregate current positions (per account+instrument) for display."""
         from app.domains.accounts.models import WrapperType
@@ -497,7 +620,7 @@ class InvestmentService:
 
         lots_result = await self.session.execute(
             select(InvestmentLot).where(
-                InvestmentLot.lot_type.in_([LotType.buy, LotType.valuation]),
+                InvestmentLot.lot_type.in_([LotType.buy, LotType.sell, LotType.valuation]),
                 InvestmentLot.account_id.in_(allowed_account_ids),
             )
         )

@@ -113,6 +113,16 @@ class InstrumentLookupOut(BaseModel):
     currency: str
     price: Decimal
     price_date: datetime.date
+    asset_class: AssetClass
+
+
+class InstrumentSearchResultOut(BaseModel):
+    symbol: str
+    name: str
+    currency: str
+    price: Decimal
+    price_date: datetime.date
+    asset_class: AssetClass
 
 
 class HoldingCreateIn(BaseModel):
@@ -160,3 +170,10 @@ class HoldingRowOut(BaseModel):
 class HoldingsOut(BaseModel):
     total_value: Decimal
     rows: list[HoldingRowOut]
+
+
+class HoldingQuantityUpdateIn(BaseModel):
+    account_id: int
+    instrument_id: int
+    quantity: Decimal = Field(ge=0)
+    settled_at: datetime.date | None = None

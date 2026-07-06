@@ -5,6 +5,7 @@ import datetime
 from decimal import Decimal
 from unittest.mock import patch
 
+from app.domains.investments.models import AssetClass
 from app.infra.price_provider import YahooFinancePriceProvider
 
 _SEARCH_URL = YahooFinancePriceProvider._SEARCH_URL
@@ -45,18 +46,38 @@ class _FakeAsyncClient:
         if url == _CRUMB_URL:
             return _FakeResponse(text_data="fake-crumb")
         if url == _SEARCH_URL:
-            isin = (params or {}).get("q")
-            if isin == "IE00B4L5Y983":
+            q = (params or {}).get("q")
+            if q == "IE00B4L5Y983":
                 return _FakeResponse(json_data={
                     "quotes": [{
                         "symbol": "IWDA.AS", "quoteType": "ETF",
                         "shortname": "iShares Core MSCI World",
                     }]
                 })
+            if q == "LU0000000BND":
+                return _FakeResponse(json_data={
+                    "quotes": [{
+                        "symbol": "GOVBND.PA", "quoteType": "MUTUALFUND",
+                        "longname": "PIMCO Global Government Bond Fund",
+                    }]
+                })
+            if q == "Acme Water":
+                # Simulates the real-world case: the ISIN isn't indexed, but
+                # a name search finds the fund (possibly under a different
+                # currency share class than the one on the user's statement).
+                return _FakeResponse(json_data={
+                    "quotes": [
+                        {"symbol": "0P00000001", "quoteType": "MUTUALFUND", "longname": "Acme Water P USD"},
+                        {"symbol": "0P00000002", "quoteType": "MUTUALFUND", "longname": "Acme Water P EUR"},
+                    ]
+                })
             return _FakeResponse(json_data={"quotes": []})
         if url.startswith(_CHART_PREFIX):
+            symbol = url[len(_CHART_PREFIX):]
+            prices = {"0P00000001": (211.5, "USD"), "0P00000002": (194.3, "EUR")}
+            price, currency = prices.get(symbol, (98.32, "EUR"))
             return _FakeResponse(json_data={
-                "chart": {"result": [{"meta": {"regularMarketPrice": 98.32, "currency": "EUR"}}]}
+                "chart": {"result": [{"meta": {"regularMarketPrice": price, "currency": currency}}]}
             })
         raise AssertionError(f"unexpected URL requested in test: {url}")
 
@@ -70,6 +91,15 @@ async def test_lookup_resolves_isin_to_price_and_metadata() -> None:
     assert result.name == "iShares Core MSCI World"
     assert result.price == Decimal("98.32")
     assert result.currency == "EUR"
+    assert result.asset_class == AssetClass.equity
+
+
+@patch("httpx.AsyncClient", _FakeAsyncClient)
+async def test_lookup_guesses_bond_asset_class_from_fund_name() -> None:
+    provider = YahooFinancePriceProvider()
+    result = await provider.lookup("LU0000000BND")
+    assert result is not None
+    assert result.asset_class == AssetClass.bond
 
 
 @patch("httpx.AsyncClient", _FakeAsyncClient)
@@ -86,3 +116,28 @@ async def test_fetch_prices_omits_unresolvable_isin_without_raising() -> None:
         ["IE00B4L5Y983", "NOTREALISIN01"], datetime.date.today()
     )
     assert prices == {"IE00B4L5Y983": Decimal("98.32")}
+
+
+@patch("httpx.AsyncClient", _FakeAsyncClient)
+async def test_search_finds_multiple_candidates_by_name() -> None:
+    provider = YahooFinancePriceProvider()
+    results = await provider.search("Acme Water")
+    assert {r.symbol for r in results} == {"0P00000001", "0P00000002"}
+    usd = next(r for r in results if r.symbol == "0P00000001")
+    eur = next(r for r in results if r.symbol == "0P00000002")
+    assert usd.name == "Acme Water P USD" and usd.currency == "USD" and usd.price == Decimal("211.5")
+    assert eur.name == "Acme Water P EUR" and eur.currency == "EUR" and eur.price == Decimal("194.3")
+
+
+@patch("httpx.AsyncClient", _FakeAsyncClient)
+async def test_search_returns_empty_list_for_no_matches() -> None:
+    provider = YahooFinancePriceProvider()
+    results = await provider.search("Nonexistent Fund Name XYZ")
+    assert results == []
+
+
+@patch("httpx.AsyncClient", _FakeAsyncClient)
+async def test_fetch_price_by_symbol_skips_search_entirely() -> None:
+    provider = YahooFinancePriceProvider()
+    price = await provider.fetch_price_by_symbol("0P00000002")
+    assert price == Decimal("194.3")

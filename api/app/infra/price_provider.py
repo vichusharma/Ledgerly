@@ -27,7 +27,25 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domains.investments.models import AssetClass
 from app.infra.settings import get_settings
+
+# Best-effort keyword buckets for guessing asset class from a fund's name —
+# Yahoo's quoteType (EQUITY/ETF/MUTUALFUND/INDEX) alone can't distinguish a
+# bond fund from an equity fund. Not authoritative; always user-overridable.
+_ASSET_CLASS_KEYWORDS: dict[AssetClass, tuple[str, ...]] = {
+    AssetClass.bond: ("bond", "obligation", "oblig", "gov", "treasury", "gilt"),
+    AssetClass.cash: ("money market", "cash", "liquidit"),
+    AssetClass.commodity: ("gold", "commodity", "metal", "silver", "oil"),
+}
+
+
+def _guess_asset_class(quote: dict) -> AssetClass:
+    name = f"{quote.get('longname', '')} {quote.get('shortname', '')}".lower()
+    for asset_class, keywords in _ASSET_CLASS_KEYWORDS.items():
+        if any(kw in name for kw in keywords):
+            return asset_class
+    return AssetClass.equity
 
 
 @dataclass(frozen=True)
@@ -39,6 +57,20 @@ class InstrumentLookupResult:
     currency: str
     price: Decimal
     price_date: datetime.date
+    asset_class: AssetClass
+
+
+@dataclass(frozen=True)
+class InstrumentSearchResult:
+    """A name-search candidate — used when a fund's ISIN isn't indexed by the
+    provider's ISIN search (common for European insurance-wrapped fund share
+    classes) but the fund is still findable by name under a plain symbol."""
+    symbol: str
+    name: str
+    currency: str
+    price: Decimal
+    price_date: datetime.date
+    asset_class: AssetClass
 
 
 class BasePriceProvider(ABC):
@@ -73,6 +105,25 @@ class BasePriceProvider(ABC):
         Optional — providers that only support the batch price fetch (e.g. a
         self-hosted `HttpPriceProvider`) don't need to implement this; callers
         should treat `NotImplementedError` as "lookup not supported."
+        """
+        raise NotImplementedError
+
+    async def search(self, query: str) -> list[InstrumentSearchResult]:
+        """Find candidate instruments by free-text name — fallback for when
+        `lookup(isin)` finds nothing (the ISIN isn't indexed by the provider,
+        even though the fund exists there under a plain symbol).
+
+        Optional — same NotImplementedError contract as `lookup`.
+        """
+        raise NotImplementedError
+
+    async def fetch_price_by_symbol(self, symbol: str) -> Decimal | None:
+        """Fetch the current price for an already-resolved provider symbol,
+        skipping name/ISIN search entirely. Used to refresh a holding whose
+        ISIN was never resolvable, once its symbol was found once via
+        `search()` and stored on the Instrument.
+
+        Optional — same NotImplementedError contract as `lookup`.
         """
         raise NotImplementedError
 
@@ -148,8 +199,8 @@ class YahooFinancePriceProvider(BasePriceProvider):
             pass
         return None
 
-    async def _resolve_symbol(self, isin: str, client, crumb: str | None) -> dict | None:
-        params: dict[str, object] = {"q": isin, "quotesCount": 5, "newsCount": 0}
+    async def _search_quotes(self, query: str, client, crumb: str | None) -> list[dict]:
+        params: dict[str, object] = {"q": query, "quotesCount": 8, "newsCount": 0}
         if crumb:
             params["crumb"] = crumb
         try:
@@ -157,18 +208,18 @@ class YahooFinancePriceProvider(BasePriceProvider):
             res.raise_for_status()
             data = res.json()
         except Exception:
-            return None
+            return []
         quotes = data.get("quotes") if isinstance(data, dict) else None
         if not quotes:
-            return None
-        for quote in quotes:
-            if (
-                isinstance(quote, dict)
-                and quote.get("quoteType") in self._VALID_QUOTE_TYPES
-                and quote.get("symbol")
-            ):
-                return quote
-        return None
+            return []
+        return [
+            q for q in quotes
+            if isinstance(q, dict) and q.get("quoteType") in self._VALID_QUOTE_TYPES and q.get("symbol")
+        ]
+
+    async def _resolve_symbol(self, isin: str, client, crumb: str | None) -> dict | None:
+        quotes = await self._search_quotes(isin, client, crumb)
+        return quotes[0] if quotes else None
 
     async def _fetch_chart(
         self, symbol: str, client, crumb: str | None
@@ -250,7 +301,43 @@ class YahooFinancePriceProvider(BasePriceProvider):
                 currency=currency,
                 price=price,
                 price_date=datetime.date.today(),
+                asset_class=_guess_asset_class(quote),
             )
+
+    async def search(self, query: str) -> list[InstrumentSearchResult]:
+        import httpx
+
+        results: list[InstrumentSearchResult] = []
+        semaphore = asyncio.Semaphore(4)
+
+        async def _one(quote: dict, client: httpx.AsyncClient, crumb: str | None) -> None:
+            async with semaphore:
+                chart = await self._fetch_chart(quote["symbol"], client, crumb)
+                if not chart:
+                    return
+                price, currency = chart
+                results.append(InstrumentSearchResult(
+                    symbol=quote["symbol"],
+                    name=quote.get("shortname") or quote.get("longname") or quote["symbol"],
+                    currency=currency,
+                    price=price,
+                    price_date=datetime.date.today(),
+                    asset_class=_guess_asset_class(quote),
+                ))
+
+        async with httpx.AsyncClient(headers=self._HEADERS) as client:
+            crumb = await self._get_crumb(client)
+            quotes = await self._search_quotes(query, client, crumb)
+            await asyncio.gather(*(_one(q, client, crumb) for q in quotes))
+        return results
+
+    async def fetch_price_by_symbol(self, symbol: str) -> Decimal | None:
+        import httpx
+
+        async with httpx.AsyncClient(headers=self._HEADERS) as client:
+            crumb = await self._get_crumb(client)
+            chart = await self._fetch_chart(symbol, client, crumb)
+            return chart[0] if chart else None
 
 
 async def get_price_provider(session: AsyncSession) -> BasePriceProvider | None:

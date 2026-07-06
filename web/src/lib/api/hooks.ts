@@ -233,6 +233,20 @@ export const useAddHolding = () => {
   });
 };
 
+export const useUpdateHoldingQuantity = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { account_id: number; instrument_id: number; quantity: number }) =>
+      apiClient.put("/portfolio/holdings/quantity", data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["holdings"] });
+      qc.invalidateQueries({ queryKey: ["lots"] });
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
+      qc.invalidateQueries({ queryKey: ["networth"] });
+    },
+  });
+};
+
 export const useDeleteLot = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -251,6 +265,14 @@ export const useInstrumentLookup = () =>
   useMutation({
     mutationFn: (isin: string) =>
       apiClient.get("/instruments/lookup", { params: { isin } }).then(r => r.data),
+  });
+
+// Fallback for when an ISIN lookup finds nothing — some funds' ISINs aren't
+// indexed by the provider even though the fund is findable by name.
+export const useInstrumentSearch = () =>
+  useMutation({
+    mutationFn: (q: string) =>
+      apiClient.get("/instruments/search", { params: { q } }).then(r => r.data),
   });
 
 export const usePriceLookupSetting = () =>

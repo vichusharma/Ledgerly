@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.accounts.models import Account, AccountType, Person
-from app.domains.investments.models import Instrument, InstrumentPrice, InvestmentLot, LotType
+from app.domains.investments.models import InvestmentLot, LotType
 from app.domains.liabilities.models import AmortizationRow, Loan
 from app.domains.networth.models import AccountSnapshot
 from app.domains.transactions.models import Transaction
@@ -171,51 +171,24 @@ class NetWorthService:
             return total if total is not None else Decimal("0")
 
         elif account.type == AccountType.investment_wrapper:
-            # Per instrument: the latest statement valuation lot (≤ as_of) is the
-            # authoritative value; only instruments without one fall back to the
-            # buy-lot × latest-price computation. Valuation lots are never summed
-            # with each other or with buy lots for the same instrument.
+            # Delegate to the shared position-aggregation algorithm (latest
+            # valuation wins, else net buy/sell lots at average cost x latest
+            # price) so this balance never drifts from Holdings/Allocation.
+            from app.domains.investments.service import InvestmentService
+
             lots_result = await self.session.execute(
                 select(InvestmentLot).where(
                     InvestmentLot.account_id == account.id,
-                    InvestmentLot.lot_type.in_([LotType.buy, LotType.valuation]),
+                    InvestmentLot.lot_type.in_([LotType.buy, LotType.sell, LotType.valuation]),
                     InvestmentLot.settled_at <= as_of,
                 )
             )
             lots = list(lots_result.scalars())
-
-            valuations: dict[int, InvestmentLot] = {}
-            for lot in lots:
-                if lot.lot_type == LotType.valuation and lot.instrument_id:
-                    cur = valuations.get(lot.instrument_id)
-                    if cur is None or (lot.settled_at, lot.id) > (cur.settled_at, cur.id):
-                        valuations[lot.instrument_id] = lot
-
-            total = Decimal("0")
-            for v in valuations.values():
-                total += v.quantity * v.price
-
-            for lot in lots:
-                if lot.lot_type != LotType.buy:
-                    continue
-                if lot.instrument_id:
-                    if lot.instrument_id in valuations:
-                        continue  # statement value supersedes computed value
-                    price_result = await self.session.execute(
-                        select(InstrumentPrice)
-                        .where(
-                            InstrumentPrice.instrument_id == lot.instrument_id,
-                            InstrumentPrice.date <= as_of,
-                        )
-                        .order_by(InstrumentPrice.date.desc())
-                        .limit(1)
-                    )
-                    price = price_result.scalar_one_or_none()
-                    if price:
-                        total += lot.quantity * price.close
-                else:
-                    total += lot.quantity * lot.price
-            return total
+            positions = await InvestmentService(self.session)._compute_positions(lots, as_of)
+            return sum(
+                (p.market_value for p in positions if p.market_value is not None),
+                Decimal("0"),
+            )
 
         elif account.type == AccountType.liability:
             # Use remaining capital from amortization schedule
