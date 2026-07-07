@@ -113,7 +113,7 @@ def _parse_net_paid(text: str) -> Decimal | None:
 def _parse_pas_line(text: str) -> tuple[Decimal | None, Decimal | None]:
     """Return (rate_pct, withheld_amount) from the PAS line, e.g.
     "Impôt sur le revenu prélevé à la source Taux personnalisé
-    3.100,00 10,80% 692,60" → base 4200.00 (net imposable, already
+    3.100,00 10,80% 692,60" → base 3100.00 (net imposable, already
     captured via the summary table), rate 10.80%, withheld 692.60.
     """
     for line in text.splitlines():
