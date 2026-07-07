@@ -62,9 +62,9 @@ class _FakeAsyncClient:
                     }]
                 })
             if q == "Acme Water":
-                # Simulates the real-world case: the ISIN isn't indexed, but
-                # a name search finds the fund (possibly under a different
-                # currency share class than the one on the user's statement).
+                # Simulates a common real-world case: the ISIN isn't indexed,
+                # but a name search finds the fund (possibly under a different
+                # currency share class than the one on the account statement).
                 return _FakeResponse(json_data={
                     "quotes": [
                         {"symbol": "0P00000001", "quoteType": "MUTUALFUND", "longname": "Acme Water P USD"},
@@ -72,8 +72,8 @@ class _FakeAsyncClient:
                     ]
                 })
             if q == "LU0000000JPY":
-                # Real-world case reported by the user: this ISIN resolves to
-                # a JPY share class, not the EUR one on the household's statement.
+                # Common real-world case: this ISIN resolves to a JPY share
+                # class, not the EUR one on the account statement.
                 return _FakeResponse(json_data={
                     "quotes": [{
                         "symbol": "0P0000JPYX", "quoteType": "MUTUALFUND",
@@ -161,9 +161,9 @@ async def test_search_finds_multiple_candidates_by_name() -> None:
 
 @patch("httpx.AsyncClient", _FakeAsyncClient)
 async def test_lookup_converts_non_eur_price_to_eur() -> None:
-    """Real case reported by the user: LU0000000JPY resolves to a JPY share
-    class on Yahoo, priced at 40451.6 — not EUR, despite the household's
-    statement being EUR. lookup() must convert before returning."""
+    """Common real-world case: LU0000000JPY resolves to a JPY share class
+    on Yahoo, priced at 40451.6 — not EUR, despite the account statement
+    being EUR. lookup() must convert before returning."""
     provider = YahooFinancePriceProvider()
     result = await provider.lookup("LU0000000JPY")
     assert result is not None

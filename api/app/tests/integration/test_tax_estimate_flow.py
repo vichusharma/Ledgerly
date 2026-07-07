@@ -75,9 +75,9 @@ async def test_single_person_default_filing_status(client: AsyncClient) -> None:
 async def test_married_pacs_combines_two_persons(client: AsyncClient) -> None:
     await _login(client)
     antoine = await _person(client, "Antoine", True)
-    nancy = await _person(client, "Camille", False)
+    camille = await _person(client, "Camille", False)
     await _payslip(client, antoine["id"], "2026-03-01", "30000", "27000", "2000")
-    await _payslip(client, nancy["id"], "2026-03-01", "15000", "13500", "1000")
+    await _payslip(client, camille["id"], "2026-03-01", "15000", "13500", "1000")
 
     await client.put("/api/v1/tax/household-settings", json={
         "filing_status": "married_pacs", "dependent_person_ids": [],
@@ -154,11 +154,11 @@ async def test_person_without_payslip_data_contributes_zero(client: AsyncClient)
     body = res.json()
 
     assert len(body["persons"]) == 2
-    nancy_entry = next(p for p in body["persons"] if p["name"] == "Camille")
-    assert nancy_entry["has_payslip_data"] is False
-    assert nancy_entry["as_of_month"] is None
-    assert float(nancy_entry["gross_annual_projected"]) == 0.0
-    assert float(nancy_entry["pas_withheld_projected_annual"]) == 0.0
+    camille_entry = next(p for p in body["persons"] if p["name"] == "Camille")
+    assert camille_entry["has_payslip_data"] is False
+    assert camille_entry["as_of_month"] is None
+    assert float(camille_entry["gross_annual_projected"]) == 0.0
+    assert float(camille_entry["pas_withheld_projected_annual"]) == 0.0
 
 
 async def test_unknown_year_falls_back_to_latest_config(client: AsyncClient) -> None:
@@ -321,14 +321,14 @@ async def test_dividends_included_in_taxable_income(client: AsyncClient) -> None
 async def test_married_pacs_pools_investment_income_at_household_level(client: AsyncClient) -> None:
     await _login(client)
     antoine = await _person(client, "Antoine", True)
-    nancy = await _person(client, "Camille", False)
+    camille = await _person(client, "Camille", False)
     await _payslip(client, antoine["id"], "2026-06-01", "30000", "27000", "2000")
-    await _payslip(client, nancy["id"], "2026-06-01", "15000", "13500", "1000")
+    await _payslip(client, camille["id"], "2026-06-01", "15000", "13500", "1000")
     await client.put("/api/v1/tax/household-settings", json={
         "filing_status": "married_pacs", "dependent_person_ids": [],
     })
 
-    acct = await _account(client, nancy["id"], "CTO", "2020-01-01")
+    acct = await _account(client, camille["id"], "CTO", "2020-01-01")
     instrument_id = await _buy_lot(client, acct["id"], "IE00B4L5Y983", "10", "100", "2025-01-01")
     await _sell_lot(client, acct["id"], instrument_id, "10", "150", "2026-06-01")
 

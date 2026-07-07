@@ -258,8 +258,8 @@ class YahooFinancePriceProvider(BasePriceProvider):
         Every stored price/lot in this app is assumed to be EUR — but some
         Yahoo quotes for European insurance-wrapped fund share classes come
         back in a different trading currency than the EUR one on the
-        household's statement (e.g. `LU0000000JPY` resolves to a JPY share
-        class). Rather than threading currency through every market-value
+        account statement (e.g. a share class resolving to a JPY quote).
+        Rather than threading currency through every market-value
         computation downstream, conversion happens once, here, using Yahoo's
         own FX-pair ticker convention (`"JPYEUR=X"` = value of 1 JPY in EUR).
         """

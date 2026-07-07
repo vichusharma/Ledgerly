@@ -8,8 +8,8 @@
 
 Ledgerly already tracks bank accounts, investments/portfolio, and net worth for the household. This feature adds: upload French salary payslips ("bulletins de paie") month by month, store the data, and estimate French income tax liability — folding in investment income too — reconciled against withholding tax ("prélèvement à la source" / PAS) already deducted at source.
 
-1. Track payslips for **both** Antoine and Camille.
-2. **Impatriate regime (régime des impatriés, Art. 155 B CGI) is a generic per-person Settings toggle** — not hardcoded to one household member. Any person can be marked eligible independently, each with their own arrival date, election method, and 8-year window. Antoine is the one who'll actually enable it today (flat-rate 30% election — recruited directly from abroad, not an intra-group transfer), but the data model and UI support enabling it for anyone.
+1. Track payslips for **all household members**.
+2. **Impatriate regime (régime des impatriés, Art. 155 B CGI) is a generic per-person Settings toggle** — not hardcoded to one household member. Any person can be marked eligible independently, each with their own arrival date, election method, and 8-year window (flat-rate 30% election or the actual-premium method), so the data model and UI support enabling it for anyone in the household.
 3. Tax depth: **full household estimate** — salary plus investment/capital-gains income, not salary-only PAS tracking.
 4. **No transaction linking** — payslip data stays in its own silo; does not create/link Transactions ledger entries (avoids double-counting a bank-imported salary deposit).
 5. No sample payslip PDF available yet — parser built generically against standard French bulletin-de-paie fields first, human reviews/corrects everything before saving (same philosophy as the existing AV-valuation-statement import), tuned against a real PDF once one is provided (see "Providing a sample payslip" below).

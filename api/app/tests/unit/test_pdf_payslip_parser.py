@@ -16,7 +16,7 @@ from app.domains.salary.parsers.pdf_payslip_parser import (
 
 
 def test_parse_amount_french_format():
-    assert _amount("3.245,50") == Decimal("5000.00")
+    assert _amount("3.245,50") == Decimal("3245.50")
 
 
 def test_parse_amount_rejects_garbage():
@@ -39,7 +39,7 @@ def test_parse_employer_from_line_after_title():
 
 def test_parse_gross_line():
     text = "1010 Salaire de Base 3.245,50\nSalaire Brut 3.245,50\n"
-    assert _parse_gross(text) == Decimal("5000.00")
+    assert _parse_gross(text) == Decimal("3245.50")
 
 
 def test_parse_net_before_tax_line():
@@ -55,11 +55,11 @@ def test_parse_net_paid_line():
 def test_parse_pas_line_extracts_rate_and_withheld():
     line = (
         "/5T0 Impôt sur le revenu prélevé à la source Taux personnalisé "
-        "3.100,00 10,80% 692,60"
+        "3.100,00 8,50% 263,50"
     )
     rate, withheld = _parse_pas_line(line)
-    assert rate == Decimal("10.80")
-    assert withheld == Decimal("692.60")
+    assert rate == Decimal("8.50")
+    assert withheld == Decimal("263.50")
 
 
 def test_parse_pas_line_missing_returns_none_pair():

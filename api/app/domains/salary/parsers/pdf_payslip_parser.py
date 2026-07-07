@@ -4,7 +4,7 @@ Same philosophy as ``pdf_valuation_parser.py``: extract every plausible
 known field, never guess silently when a field can't be found. Every
 result field is nullable and reviewed/corrected by the user before
 anything is saved — payslip layouts vary between employers/payroll
-providers (verified against Acme France's 2025-renovated
+providers (verified against a large French employer's 2025-renovated
 "bulletin de paie" template; tune the regexes below if another
 employer's layout doesn't match).
 

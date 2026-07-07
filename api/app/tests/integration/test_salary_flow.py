@@ -26,10 +26,10 @@ async def test_save_payslip_creates_record(client: AsyncClient) -> None:
         "employer": "Acme France SAS",
         "gross": "5000.00",
         "net_taxable": "4200.00",
-        "net_before_tax": "2987.20",
-        "net_paid": "2650.10",
-        "pas_rate": "10.80",
-        "pas_withheld": "692.60",
+        "net_before_tax": "3850.00",
+        "net_paid": "3400.00",
+        "pas_rate": "9.50",
+        "pas_withheld": "399.00",
         "ytd_gross": "30000.00",
         "ytd_net_taxable": "25200.00",
         "ytd_pas_withheld": "2394.00",
@@ -39,7 +39,7 @@ async def test_save_payslip_creates_record(client: AsyncClient) -> None:
     assert body["person_id"] == person["id"]
     assert body["pay_period"] == "2026-06-01"
     assert float(body["gross"]) == 5000.00
-    assert float(body["pas_withheld"]) == 692.60
+    assert float(body["pas_withheld"]) == 399.00
 
 
 async def test_resave_same_person_period_upserts_not_duplicates(client: AsyncClient) -> None:
@@ -52,26 +52,26 @@ async def test_resave_same_person_period_upserts_not_duplicates(client: AsyncCli
     await client.post("/api/v1/salary/payslips", json=payload)
 
     # Corrected review of the same month → update in place, not a duplicate.
-    payload["gross"] = "8000.00"
+    payload["gross"] = "5200.00"
     await client.post("/api/v1/salary/payslips", json=payload)
 
     listed = (await client.get(
         "/api/v1/salary/payslips", params={"person_id": person["id"]}
     )).json()
     assert len(listed) == 1
-    assert float(listed[0]["gross"]) == 8000.00
+    assert float(listed[0]["gross"]) == 5200.00
 
 
 async def test_list_filters_by_person_and_year(client: AsyncClient) -> None:
     antoine = await _person(client, "Antoine")
-    nancy = (await client.post(
+    camille = (await client.post(
         "/api/v1/persons", json={"name": "Camille", "is_primary": False}
     )).json()
 
     for person_id, period in (
         (antoine["id"], "2025-12-01"),
         (antoine["id"], "2026-06-01"),
-        (nancy["id"], "2026-06-01"),
+        (camille["id"], "2026-06-01"),
     ):
         await client.post("/api/v1/salary/payslips", json={
             "person_id": person_id, "pay_period": period, "gross": "5000.00",
