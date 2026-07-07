@@ -123,6 +123,45 @@ Updated by the build agent after each story is completed.
 
 ---
 
+## EPIC I — Payslip Ingestion & Household Tax Estimation *(post-MVP, see [EPICS](./EPICS.md))*
+
+### Feature I1 — Payslip ingestion
+- [x] **I1-S1** Payslip PDF parser (`pdf_payslip_parser.py`)
+- [x] **I1-S2** Preview/review/confirm flow
+- [x] **I1-S3** Upsert by natural key `(person_id, pay_period)`
+- [x] **I1-S4** Payslip list + delete
+- [x] **I1-S5** Salary trend chart
+- [x] **I1-S6** i18n (FR+EN)
+
+### Feature I2 — Person / household tax profile settings
+- [x] **I2-S1** Per-person impatriate toggle (arrival date + election method)
+- [x] **I2-S2** Household filing status & explicit dependents list
+- [x] **I2-S3** Settings UI section (`TaxProfileSection.tsx`)
+- [x] **I2-S4** API (`/tax/profile/{id}`, `/tax/household-settings`)
+
+### Feature I3 — Salary-only PAS reconciliation
+- [x] **I3-S1** Tax-year bracket config (`tax_year_configs` table)
+- [x] **I3-S2** Barème + quotient familial engine (`core/tax.py`, golden-tested)
+- [x] **I3-S3** Impatriate flat-30% exemption per person
+- [x] **I3-S4** YTD projection & withholding reconciliation
+- [x] **I3-S5** Tax estimate endpoint (`GET /tax/estimate`)
+- [x] **I3-S6** `/tax` page (KPIs, reconciliation chart, impatriate timeline)
+- [x] **I3-S7** i18n — disclaimers looked up by key
+
+### Feature I4 — Investment income folded in
+- [x] **I4-S1** Realized gains (average cost) + dividend summing
+- [x] **I4-S2** Wrapper exemptions (PEA 5yr / AV 8yr) via `get_wrapper_hints`
+- [x] **I4-S3** PFU vs. barème comparison
+- [x] **I4-S4** Wired into `GET /tax/estimate?include_investments=true`
+
+### Feature I5 — Polish
+- [x] **I5-S1** Dashboard "Tax estimate" KPI tile linking to `/tax`
+- [x] **I5-S2** ARCHITECTURE.md housekeeping (`salary`/`tax`/`pension` domains)
+- [x] **I5-S3** Disclaimer wording pass (reviewed, already conservative)
+- [x] **I5-S4** Folded into EPICS.md/PROGRESS.md (this entry)
+
+---
+
 ## Phase summary
 | Phase | Stories | Done | Pct |
 |-------|---------|------|-----|
@@ -140,3 +179,9 @@ Updated by the build agent after each story is completed.
 | 2026-06-28 | P1 complete: all 25 MVP stories implemented |
 | 2026-06-28 | P2 complete: rollback, archive, vesting, prepayment, GDPR |
 | 2026-06-28 | P3 complete: price provider, tax rules, Monte Carlo, migration 0002 |
+| 2026-07-06 | Epic I planned (payslip ingestion + household tax estimation), `docs/Backlog.md` written |
+| 2026-07-06 | I1 complete: payslip ingestion (parser, review flow, upsert, trend chart) |
+| 2026-07-06 | I2 complete: person/household tax profile settings (impatriate toggle, filing status, dependents) |
+| 2026-07-06 | I3 complete: salary-only PAS reconciliation (barème/quotient-familial engine, `/tax` page) |
+| 2026-07-07 | I4 complete: investment income folded in (realized gains, wrapper exemptions, PFU vs. barème) |
+| 2026-07-07 | I5 complete: polish (Dashboard tile, docs housekeeping, wording review) — Epic I fully done, folded into EPICS.md/PROGRESS.md |

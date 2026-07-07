@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { usePersons, usePriceLookupSetting, useSetPriceLookupSetting } from "@/lib/api/hooks";
+import { usePersons, usePriceLookupSetting, useSetPriceLookupSetting, useUpdatePerson } from "@/lib/api/hooks";
 import { useLanguage } from "@/lib/context/LanguageContext";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { apiClient } from "@/lib/api/client";
@@ -15,9 +15,13 @@ export default function SettingsPage() {
   const { data: persons = [], refetch } = usePersons();
   const { data: priceLookup } = usePriceLookupSetting();
   const setPriceLookup = useSetPriceLookupSetting();
+  const updatePerson = useUpdatePerson();
   const [newPersonName, setNewPersonName] = useState("");
+  const [newPersonDob, setNewPersonDob] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [editingPersonId, setEditingPersonId] = useState<number | null>(null);
+  const [editDob, setEditDob] = useState("");
   const { t, locale, setLocale } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const sx = t("settings");
@@ -29,15 +33,27 @@ export default function SettingsPage() {
       await apiClient.post("/persons", {
         name: newPersonName,
         is_primary: persons.length === 0,
+        date_of_birth: newPersonDob || null,
       });
       await refetch();
       setNewPersonName("");
+      setNewPersonDob("");
       setMsg(sx.personAdded);
     } catch {
       setMsg(sx.error);
     } finally {
       setSaving(false);
     }
+  };
+
+  const startEditPerson = (p: any) => {
+    setEditingPersonId(p.id);
+    setEditDob(p.date_of_birth || "");
+  };
+
+  const handleSavePersonDob = async (id: number) => {
+    await updatePerson.mutateAsync({ id, date_of_birth: editDob || null });
+    setEditingPersonId(null);
   };
 
   const handleExport = async () => {
@@ -127,15 +143,53 @@ export default function SettingsPage() {
           {persons.length > 0 ? (
             <ul className="space-y-2">
               {persons.map((p: any) => (
-                <li key={p.id} className="flex items-center gap-3 py-2 border-b border-surface-border dark:border-border last:border-0">
-                  <div className="w-7 h-7 rounded-full bg-brand-50 text-brand-600 font-semibold text-xs flex items-center justify-center">
-                    {p.name[0]}
+                <li key={p.id} className="py-2 border-b border-surface-border dark:border-border last:border-0">
+                  <div className="flex items-center gap-3 group">
+                    <div className="w-7 h-7 rounded-full bg-brand-50 text-brand-600 font-semibold text-xs flex items-center justify-center">
+                      {p.name[0]}
+                    </div>
+                    <span className="text-sm text-slate-700 dark:text-foreground">{p.name}</span>
+                    {p.is_primary && (
+                      <span className="text-xs bg-brand-50 text-brand-600 dark:bg-indigo-950 dark:text-indigo-400 px-2 py-0.5 rounded-full">
+                        {sx.primary}
+                      </span>
+                    )}
+                    {p.date_of_birth && (
+                      <span className="text-xs text-slate-400 dark:text-muted-foreground">{p.date_of_birth}</span>
+                    )}
+                    <button
+                      onClick={() => startEditPerson(p)}
+                      className="ml-auto text-xs text-brand opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                    >
+                      {sx.edit}
+                    </button>
                   </div>
-                  <span className="text-sm text-slate-700 dark:text-foreground">{p.name}</span>
-                  {p.is_primary && (
-                    <span className="text-xs bg-brand-50 text-brand-600 dark:bg-indigo-950 dark:text-indigo-400 px-2 py-0.5 rounded-full">
-                      {sx.primary}
-                    </span>
+                  {editingPersonId === p.id && (
+                    <div className="mt-2 ml-10 flex items-end gap-2">
+                      <div>
+                        <label className="text-xs text-slate-500 dark:text-muted-foreground" title={sx.dateOfBirthHint}>
+                          {sx.dateOfBirth}
+                        </label>
+                        <input
+                          type="date"
+                          value={editDob}
+                          onChange={e => setEditDob(e.target.value)}
+                          className="block mt-1 text-sm border border-surface-border dark:border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 bg-white dark:bg-secondary dark:text-foreground"
+                        />
+                      </div>
+                      <button
+                        onClick={() => handleSavePersonDob(p.id)}
+                        className="bg-brand text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-700"
+                      >
+                        {sx.save}
+                      </button>
+                      <button
+                        onClick={() => setEditingPersonId(null)}
+                        className="text-slate-500 dark:text-muted-foreground text-sm px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-secondary"
+                      >
+                        {sx.cancel}
+                      </button>
+                    </div>
                   )}
                 </li>
               ))}
@@ -149,6 +203,13 @@ export default function SettingsPage() {
               onChange={e => setNewPersonName(e.target.value)}
               placeholder={sx.memberPlaceholder}
               className="flex-1 text-sm border border-surface-border dark:border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 bg-white dark:bg-secondary dark:text-foreground"
+            />
+            <input
+              type="date"
+              value={newPersonDob}
+              onChange={e => setNewPersonDob(e.target.value)}
+              title={sx.dateOfBirthHint}
+              className="text-sm border border-surface-border dark:border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 bg-white dark:bg-secondary dark:text-foreground"
             />
             <button
               onClick={handleAddPerson}

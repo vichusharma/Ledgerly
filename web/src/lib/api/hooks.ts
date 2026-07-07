@@ -44,6 +44,15 @@ export const useLogout = () => {
 export const usePersons = () =>
   useQuery({ queryKey: ["persons"], queryFn: () => apiClient.get("/persons").then(r => r.data) });
 
+export const useUpdatePerson = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: number; [key: string]: unknown }) =>
+      apiClient.patch(`/persons/${id}`, body).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["persons"] }),
+  });
+};
+
 export const useAccounts = (scope = "household", includeArchived = false) =>
   useQuery({
     queryKey: ["accounts", scope, includeArchived],

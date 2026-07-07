@@ -8,7 +8,7 @@ from app.api.deps import get_current_user, get_db
 from app.domains.accounts.schemas import (
     AccountCreateIn, AccountOut, AccountUpdateIn,
     HouseholdSettingsOut, HouseholdSettingsUpdateIn,
-    PersonCreateIn, PersonOut,
+    PersonCreateIn, PersonOut, PersonUpdateIn,
 )
 from app.domains.accounts.service import AccountService
 
@@ -39,6 +39,16 @@ async def list_persons(db: AsyncSession = Depends(get_db)) -> list[PersonOut]:
 @router.post("/persons", response_model=PersonOut, status_code=201)
 async def create_person(body: PersonCreateIn, db: AsyncSession = Depends(get_db)) -> PersonOut:
     return await AccountService(db).create_person(body)
+
+
+@router.patch("/persons/{person_id}", response_model=PersonOut)
+async def update_person(
+    person_id: int, body: PersonUpdateIn, db: AsyncSession = Depends(get_db)
+) -> PersonOut:
+    obj = await AccountService(db).update_person(person_id, body)
+    if obj is None:
+        raise HTTPException(404, "Person not found")
+    return obj
 
 
 # ── Accounts ─────────────────────────────────────────────────────────────────

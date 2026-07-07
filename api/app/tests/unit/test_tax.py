@@ -23,6 +23,7 @@ from app.core.tax import (
     compute_quotient_tax,
     compute_realized_gains_for_year,
     impatriate_years_remaining,
+    is_minor_dependent,
     project_annual_from_ytd,
     reconcile_withholding,
     sum_dividends_for_year,
@@ -79,6 +80,39 @@ class TestComputeParts:
 
     def test_married_three_dependents_third_child_is_full_part(self):
         assert compute_parts("married_pacs", 3) == Decimal("4")
+
+    def test_adult_dependent_is_a_flat_full_part(self):
+        # 1 adult dependent, no minors: 2 + 1 = 3, not the 0.5 a minor would get.
+        assert compute_parts("married_pacs", 0, 1) == Decimal("3")
+
+    def test_adult_dependents_dont_share_the_minor_progression(self):
+        # 2 adults: flat 1 each = 2, regardless of the minor first-two-at-0.5 rule.
+        assert compute_parts("single", 0, 2) == Decimal("3")
+
+    def test_minor_and_adult_dependents_combine(self):
+        # 1 minor (+0.5) + 1 adult (+1) on top of married base (2) = 3.5.
+        assert compute_parts("married_pacs", 1, 1) == Decimal("3.5")
+
+    def test_negative_adult_count_clamped_to_zero(self):
+        assert compute_parts("single", 0, -1) == Decimal("1")
+
+
+class TestIsMinorDependent:
+    def test_no_birth_date_defaults_to_minor(self):
+        assert is_minor_dependent(None, datetime.date(2026, 12, 31)) is True
+
+    def test_seventeen_year_old_is_minor(self):
+        assert is_minor_dependent(datetime.date(2009, 6, 1), datetime.date(2026, 12, 31)) is True
+
+    def test_eighteen_year_old_is_adult(self):
+        assert is_minor_dependent(datetime.date(2008, 6, 1), datetime.date(2026, 12, 31)) is False
+
+    def test_day_before_eighteenth_birthday_still_minor(self):
+        # Turns 18 on Dec 31 2026 — one day earlier they're still 17.
+        assert is_minor_dependent(datetime.date(2008, 12, 31), datetime.date(2026, 12, 30)) is True
+
+    def test_turns_eighteen_exactly_on_reference_date_is_adult(self):
+        assert is_minor_dependent(datetime.date(2008, 12, 31), datetime.date(2026, 12, 31)) is False
 
 
 class TestComputeQuotientTax:

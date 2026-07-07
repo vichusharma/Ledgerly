@@ -74,10 +74,12 @@ A **modular monolith**: each domain is a self-contained module exposing a servic
 │      ▼                                                                │
 │  domains/    accounts │ transactions │ investments │ liabilities │   │
 │              networth │ scenarios    │ planning     │ imports     │   │
+│              pension  │ salary       │ tax                          │   │
 │      │ each = service.py + repository.py + models.py + schemas.py     │
 │      ▼ call                                                           │
 │  core/       money │ amortization │ performance(twr,xirr) │          │
-│              allocation │ simulation │ projection   (PURE, tested)    │
+│              allocation │ simulation │ projection │ pension │ tax    │
+│                                                        (PURE, tested) │
 │      ▼ persist via                                                    │
 │  infra/      db (SQLAlchemy) │ migrations │ security(crypto,auth) │   │
 │              scheduler │ price_provider(iface) │ settings            │
@@ -145,7 +147,8 @@ ledgerly/
 │  │  ├─ api/                    # routers + http schemas + deps (auth)
 │  │  ├─ domains/                # accounts, transactions, investments,
 │  │  │                          #   liabilities, networth, scenarios,
-│  │  │                          #   planning, imports
+│  │  │                          #   planning, imports, pension,
+│  │  │                          #   salary, tax
 │  │  ├─ core/                   # pure math: money, amortization,
 │  │  │                          #   performance, allocation, simulation
 │  │  ├─ infra/                  # db, security, scheduler, price_provider, settings

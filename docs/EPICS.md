@@ -109,6 +109,46 @@ Story point scale: XS=1, S=2, M=3, L=5, XL=8.
 
 ---
 
+## EPIC I — Payslip Ingestion & Household Tax Estimation *(post-MVP, built 2026-07-06/07)*
+**Goal:** track monthly French salary payslips and estimate household income-tax liability (salary + investment income), reconciled against withholding (PAS) already deducted. Folded in from `docs/Backlog.md`, which has the full acceptance criteria and documented simplifications — see there for detail.
+
+### Feature I1 — Payslip ingestion
+- **I1-S1** (L) *Payslip PDF parser.* Given a payslip PDF, when uploaded, then gross/net-imposable/net-à-payer/taux-PAS/PAS-withheld/cumuls/période/employer are extracted as an editable candidate.
+- **I1-S2** (M) *Preview/review/confirm flow.* Nothing is saved until reviewed and confirmed.
+- **I1-S3** (M) *Upsert by natural key.* A re-uploaded/corrected month replaces rather than duplicates, keyed on `(person_id, pay_period)`.
+- **I1-S4** (S) *Payslip list + delete.*
+- **I1-S5** (M) *Salary trend chart.*
+- **I1-S6** (S) *i18n (FR+EN).*
+
+### Feature I2 — Person / household tax profile settings
+- **I2-S1** (M) *Per-person impatriate toggle* (régime des impatriés, Art. 155 B CGI) — generic, any person independently enabled with their own arrival date + election method.
+- **I2-S2** (M) *Household filing status & dependents* — explicit opt-in dependents list, never auto-inferred.
+- **I2-S3** (S) *Settings UI section.*
+- **I2-S4** (S) *API* (`GET/PUT /tax/profile/{person_id}`, `GET/PUT /tax/household-settings`).
+
+### Feature I3 — Salary-only PAS reconciliation
+- **I3-S1** (L) *Tax-year bracket config* — barème lives in a `tax_year_configs` table, not code.
+- **I3-S2** (XL) *Barème + quotient familial engine* (`core/tax.py`, golden-tested).
+- **I3-S3** (M) *Impatriate exemption* (flat-30% only, per person).
+- **I3-S4** (M) *YTD projection & reconciliation* (linear extrapolation).
+- **I3-S5** (L) *Tax estimate endpoint* (`GET /tax/estimate`).
+- **I3-S6** (L) *`/tax` page* — KPI row, withholding-reconciliation chart, impatriate timeline.
+- **I3-S7** (S) *i18n* — disclaimer strings looked up by key.
+
+### Feature I4 — Investment income folded in
+- **I4-S1** (XL) *Realized gains from the raw ledger* (`compute_realized_gains_for_year`, average cost) + dividend summing.
+- **I4-S2** (L) *Wrapper exemptions* — PEA 5yr / AV 8yr, via the existing `get_wrapper_hints` rules engine.
+- **I4-S3** (L) *PFU vs. barème* comparison, household-wide.
+- **I4-S4** (M) *Wire into the estimate* — `investment_income` populated when `include_investments=true`.
+
+### Feature I5 — Polish
+- **I5-S1** (S) *Optional Dashboard tile* — small "Tax estimate" KPI linking to `/tax`.
+- **I5-S2** (XS) *Docs housekeeping* — `salary`/`tax`/`pension` domains listed in ARCHITECTURE.md.
+- **I5-S3** (S) *Wording pass* — reviewed all `simplifications_applied` disclaimer copy (FR+EN); already conservative/estimate-framed, no changes needed.
+- **I5-S4** *Folded into EPICS.md/PROGRESS.md* (this section).
+
+---
+
 ## Phase rollup (see [MVP](./MVP.md))
 - **P1 (MVP):** A1,A2 · B1,B2 · C1,C2-S1,C3 · D1 · E1 · F1 · G1 · H1,H2,H3 — *consolidated net worth + real returns + the flagship simulator.*
 - **P2:** account archive, batch rollback, recurring expenses, vesting, prepayment, goal feasibility, vacation budget, GDPR export.

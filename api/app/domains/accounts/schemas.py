@@ -20,6 +20,13 @@ class HouseholdSettingsUpdateIn(BaseModel):
 class PersonCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     is_primary: bool = False
+    date_of_birth: datetime.date | None = None
+
+
+class PersonUpdateIn(BaseModel):
+    name: str | None = None
+    is_primary: bool | None = None
+    date_of_birth: datetime.date | None = None
 
 
 class PersonOut(BaseModel):
@@ -28,6 +35,7 @@ class PersonOut(BaseModel):
     name: str
     is_primary: bool
     household_id: int
+    date_of_birth: datetime.date | None
 
 
 class AccountCreateIn(BaseModel):

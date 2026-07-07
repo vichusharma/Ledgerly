@@ -72,15 +72,44 @@ def apply_bareme(income: Decimal, brackets: list[BaremeBracket]) -> Decimal:
     return tax
 
 
-def compute_parts(filing_status: str, num_dependents: int) -> Decimal:
-    """Quotient familial parts: 1 (single) or 2 (married/pacs) base, +0.5 for
-    each of the first 2 dependents, +1 for each additional dependent."""
+def compute_parts(
+    filing_status: str, num_minor_dependents: int, num_adult_dependents: int = 0
+) -> Decimal:
+    """Quotient familial parts: 1 (single) or 2 (married/pacs) base.
+
+    Minor dependents follow the standard progressive rule: +0.5 for each of
+    the first 2, +1 for each additional one beyond that. Adult dependents
+    (e.g. an ascendant living in the household, or an adult child not
+    treated as a minor) each add a flat +1 full part instead, outside that
+    progression — a documented simplification (see
+    "adult_dependents_flat_one_part" in docs/Backlog.md) that doesn't model
+    the real election between rattachement-as-a-child vs. a fixed income
+    deduction for attached adult children.
+    """
     base = Decimal("2") if filing_status == "married_pacs" else Decimal("1")
-    if num_dependents <= 0:
-        return base
-    if num_dependents <= 2:
-        return base + Decimal("0.5") * num_dependents
-    return base + Decimal("1") + Decimal(num_dependents - 2)
+    if num_minor_dependents <= 0:
+        minor_parts = Decimal("0")
+    elif num_minor_dependents <= 2:
+        minor_parts = Decimal("0.5") * num_minor_dependents
+    else:
+        minor_parts = Decimal("1") + Decimal(num_minor_dependents - 2)
+    adult_parts = Decimal(max(0, num_adult_dependents))
+    return base + minor_parts + adult_parts
+
+
+def is_minor_dependent(date_of_birth: datetime.date | None, as_of: datetime.date) -> bool:
+    """Whether a dependent counts as a minor child for quotient-familial
+    purposes, as of Dec 31 of the tax year (the standard French reference
+    date). A dependent with no known birth date is conservatively treated
+    as a minor (the more common case, and the one that doesn't require the
+    flat-adult-part disclaimer) — callers should flag this via a
+    simplification key when it happens, since it's a guess, not a fact."""
+    if date_of_birth is None:
+        return True
+    age = as_of.year - date_of_birth.year - (
+        (as_of.month, as_of.day) < (date_of_birth.month, date_of_birth.day)
+    )
+    return age < 18
 
 
 def compute_quotient_tax(

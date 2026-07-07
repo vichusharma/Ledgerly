@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { KpiCard } from "@/components/finance/KpiCard";
 import { NetWorthHero } from "@/components/finance/NetWorthHero";
@@ -9,7 +10,7 @@ import { CashflowChart } from "@/components/charts/CashflowChart";
 import { AllocationChart } from "@/components/charts/AllocationChart";
 import {
   useNetWorth, useNetWorthSeries, usePortfolioPerformance,
-  usePortfolioAllocation, useTransactionAnalytics,
+  usePortfolioAllocation, useTransactionAnalytics, useTaxEstimate,
 } from "@/lib/api/hooks";
 import { useScope } from "@/lib/hooks/useScope";
 import { useLanguage } from "@/lib/context/LanguageContext";
@@ -22,9 +23,14 @@ export default function DashboardPage() {
   const { data: perf } = usePortfolioPerformance(scope);
   const { data: alloc } = usePortfolioAllocation(scope);
   const { data: analytics } = useTransactionAnalytics();
+  const { data: taxEstimate } = useTaxEstimate(new Date().getFullYear());
   const { t } = useLanguage();
   const dx = t("dashboard");
   const px = t("portfolio");
+  const tx = t("tax");
+
+  const taxBalance = taxEstimate ? Number(taxEstimate.balance) : 0;
+  const taxOwes = taxBalance > 0;
 
   const byMonth = (analytics?.by_month ?? []).map((m: any) => ({
     month: m.month, spent: Number(m.spent), income: Number(m.income),
@@ -53,6 +59,17 @@ export default function DashboardPage() {
               trend={perf?.xirr ?? 0}
               className="flex-1"
             />
+            {taxEstimate && (
+              <Link href="/tax" className="flex-1 block hover:opacity-90 transition-opacity">
+                <KpiCard
+                  title={dx.taxEstimateTitle}
+                  value={formatMoney(Math.abs(taxBalance))}
+                  subtitle={taxOwes ? tx.balanceOwe : tx.balanceRefund}
+                  trend={taxOwes ? -1 : 1}
+                  className="h-full"
+                />
+              </Link>
+            )}
           </div>
 
           {/* Row 2 — net worth evolution */}

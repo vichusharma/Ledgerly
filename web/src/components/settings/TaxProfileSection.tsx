@@ -15,6 +15,19 @@ interface Person {
   id: number;
   name: string;
   is_primary: boolean;
+  date_of_birth?: string | null;
+}
+
+function isAdult(dateOfBirth?: string | null): boolean {
+  if (!dateOfBirth) return false;
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const beforeBirthday =
+    today.getMonth() < dob.getMonth() ||
+    (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate());
+  if (beforeBirthday) age -= 1;
+  return age >= 18;
 }
 
 function PersonImpatriateRow({ person, sx }: { person: Person; sx: Record<string, string> }) {
@@ -226,6 +239,15 @@ export function TaxProfileSection() {
                   className="rounded border-surface-border dark:border-border"
                 />
                 {p.name}
+                {dependentIds.includes(p.id) && (
+                  <span className="text-xs text-slate-400 dark:text-muted-foreground">
+                    {p.date_of_birth
+                      ? isAdult(p.date_of_birth)
+                        ? sx.dependentAdult
+                        : sx.dependentMinor
+                      : sx.dependentAgeUnknown}
+                  </span>
+                )}
               </label>
             ))}
           </div>

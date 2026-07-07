@@ -57,6 +57,7 @@ class Person(Base):
     household_id: Mapped[int] = mapped_column(ForeignKey("households.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
+    date_of_birth: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
 
     # French expat "régime des impatriés" (Art. 155 B CGI) — per-person, generic toggle.
     impatriate_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

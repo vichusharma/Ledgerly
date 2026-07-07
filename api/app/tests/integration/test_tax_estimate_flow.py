@@ -12,9 +12,13 @@ pytestmark = pytest.mark.asyncio
 PASSWORD = "S3cur3P@ss!"
 
 
-async def _person(client: AsyncClient, name: str = "Antoine", is_primary: bool = True) -> dict:
+async def _person(
+    client: AsyncClient, name: str = "Antoine", is_primary: bool = True,
+    date_of_birth: str | None = None,
+) -> dict:
     return (await client.post(
-        "/api/v1/persons", json={"name": name, "is_primary": is_primary}
+        "/api/v1/persons",
+        json={"name": name, "is_primary": is_primary, "date_of_birth": date_of_birth},
     )).json()
 
 
@@ -358,3 +362,97 @@ async def test_single_filing_attributes_investment_income_to_primary(client: Asy
     assert "single_filing_investment_income_attributed_to_primary" in body[
         "simplifications_applied"
     ]
+
+
+# ── Minor vs. adult dependents (quotient familial parts) ───────────────────
+
+
+async def test_minor_dependent_gets_progressive_half_part(client: AsyncClient) -> None:
+    await _login(client)
+    antoine = await _person(client, "Antoine", True)
+    await _person(client, "Camille", False)
+    child = await _person(client, "Theo", False, date_of_birth="2015-06-01")
+    await _payslip(client, antoine["id"], "2026-06-01", "60000", "54000", "5000")
+    await client.put("/api/v1/tax/household-settings", json={
+        "filing_status": "married_pacs", "dependent_person_ids": [child["id"]],
+    })
+
+    res = await client.get("/api/v1/tax/estimate", params={"year": 2026})
+    body = res.json()
+
+    assert float(body["parts"]) == 2.5
+    assert "adult_dependents_flat_one_part" not in body["simplifications_applied"]
+    assert "dependent_age_unknown_assumed_minor" not in body["simplifications_applied"]
+
+
+async def test_adult_dependent_gets_flat_full_part(client: AsyncClient) -> None:
+    await _login(client)
+    antoine = await _person(client, "Antoine", True)
+    await _person(client, "Camille", False)
+    adult_dependent = await _person(client, "Grandma", False, date_of_birth="1950-01-01")
+    await _payslip(client, antoine["id"], "2026-06-01", "60000", "54000", "5000")
+    await client.put("/api/v1/tax/household-settings", json={
+        "filing_status": "married_pacs", "dependent_person_ids": [adult_dependent["id"]],
+    })
+
+    res = await client.get("/api/v1/tax/estimate", params={"year": 2026})
+    body = res.json()
+
+    # 2 (married base) + 1 flat part for the adult dependent = 3, not 2.5.
+    assert float(body["parts"]) == 3.0
+    assert "adult_dependents_flat_one_part" in body["simplifications_applied"]
+
+
+async def test_mixed_minor_and_adult_dependents_combine(client: AsyncClient) -> None:
+    await _login(client)
+    antoine = await _person(client, "Antoine", True)
+    await _person(client, "Camille", False)
+    child = await _person(client, "Theo", False, date_of_birth="2015-06-01")
+    adult_dependent = await _person(client, "Grandma", False, date_of_birth="1950-01-01")
+    await _payslip(client, antoine["id"], "2026-06-01", "60000", "54000", "5000")
+    await client.put("/api/v1/tax/household-settings", json={
+        "filing_status": "married_pacs",
+        "dependent_person_ids": [child["id"], adult_dependent["id"]],
+    })
+
+    res = await client.get("/api/v1/tax/estimate", params={"year": 2026})
+    body = res.json()
+
+    # 2 (base) + 0.5 (minor) + 1 (adult) = 3.5
+    assert float(body["parts"]) == 3.5
+    assert "adult_dependents_flat_one_part" in body["simplifications_applied"]
+
+
+async def test_dependent_without_birth_date_assumed_minor(client: AsyncClient) -> None:
+    await _login(client)
+    antoine = await _person(client, "Antoine", True)
+    await _person(client, "Camille", False)
+    child = await _person(client, "Theo", False)  # no date_of_birth
+    await _payslip(client, antoine["id"], "2026-06-01", "60000", "54000", "5000")
+    await client.put("/api/v1/tax/household-settings", json={
+        "filing_status": "married_pacs", "dependent_person_ids": [child["id"]],
+    })
+
+    res = await client.get("/api/v1/tax/estimate", params={"year": 2026})
+    body = res.json()
+
+    assert float(body["parts"]) == 2.5
+    assert "dependent_age_unknown_assumed_minor" in body["simplifications_applied"]
+
+
+async def test_single_filing_adult_dependent_attributed_to_primary(client: AsyncClient) -> None:
+    await _login(client)
+    antoine = await _person(client, "Antoine", True)
+    await _person(client, "Camille", False)
+    adult_dependent = await _person(client, "Grandma", False, date_of_birth="1950-01-01")
+    await _payslip(client, antoine["id"], "2026-06-01", "60000", "54000", "5000")
+    await client.put("/api/v1/tax/household-settings", json={
+        "filing_status": "single", "dependent_person_ids": [adult_dependent["id"]],
+    })
+
+    res = await client.get("/api/v1/tax/estimate", params={"year": 2026})
+    body = res.json()
+
+    antoine_entry = next(p for p in body["persons"] if p["person_id"] == antoine["id"])
+    # 1 (single base) + 1 flat part for the adult dependent = 2, not 1.5.
+    assert float(antoine_entry["parts_used"]) == 2.0

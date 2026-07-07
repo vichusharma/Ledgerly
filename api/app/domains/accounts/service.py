@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domains.accounts.repository import AccountRepository, PersonRepository
 from app.domains.accounts.schemas import (
     AccountCreateIn, AccountOut, AccountUpdateIn,
-    HouseholdSettingsOut, HouseholdSettingsUpdateIn, PersonCreateIn, PersonOut,
+    HouseholdSettingsOut, HouseholdSettingsUpdateIn,
+    PersonCreateIn, PersonOut, PersonUpdateIn,
 )
 
 
@@ -28,7 +29,16 @@ class AccountService:
             name=body.name,
             is_primary=body.is_primary,
             household_id=household.id,
+            date_of_birth=body.date_of_birth,
         )
+        return PersonOut.model_validate(person)
+
+    async def update_person(self, person_id: int, body: PersonUpdateIn) -> PersonOut | None:
+        person = await self._person_repo.get_person(person_id)
+        if person is None:
+            return None
+        updates = body.model_dump(exclude_unset=True)
+        person = await self._person_repo.update_person(person, **updates)
         return PersonOut.model_validate(person)
 
     async def list_accounts(

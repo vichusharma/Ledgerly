@@ -21,6 +21,7 @@ from app.core.tax import (
     compute_quotient_tax,
     compute_realized_gains_for_year,
     impatriate_years_remaining,
+    is_minor_dependent,
     project_annual_from_ytd,
     reconcile_withholding,
     sum_dividends_for_year,
@@ -319,7 +320,27 @@ class TaxService:
         if used_fallback:
             simplifications.append("bareme_year_fallback")
 
+        persons_by_id = {p.id: p for p in persons}
         num_dependents = len(household_settings.dependent_person_ids)
+        year_end = datetime.date(year, 12, 31)
+        num_minor_dependents = 0
+        num_adult_dependents = 0
+        dependent_age_unknown = False
+        for dep_id in household_settings.dependent_person_ids:
+            dep = persons_by_id.get(dep_id)
+            if dep is None:
+                continue
+            if dep.date_of_birth is None:
+                dependent_age_unknown = True
+            if is_minor_dependent(dep.date_of_birth, year_end):
+                num_minor_dependents += 1
+            else:
+                num_adult_dependents += 1
+        if dependent_age_unknown:
+            simplifications.append("dependent_age_unknown_assumed_minor")
+        if num_adult_dependents > 0:
+            simplifications.append("adult_dependents_flat_one_part")
+
         person_breakdowns: list[PersonTaxEstimateOut] = []
         specific_premium_seen = False
 
@@ -381,7 +402,7 @@ class TaxService:
             simplifications.append("impatriate_specific_premium_not_computed")
 
         if household_settings.filing_status == FilingStatus.married_pacs:
-            parts = compute_parts("married_pacs", num_dependents)
+            parts = compute_parts("married_pacs", num_minor_dependents, num_adult_dependents)
             household_taxable = sum(
                 (p.net_taxable_after_impatriate for p in person_breakdowns), Decimal("0")
             )
@@ -402,7 +423,6 @@ class TaxService:
             # modeled.
             if num_dependents:
                 simplifications.append("single_filing_dependents_attributed_to_primary")
-            persons_by_id = {p.id: p for p in persons}
             estimated_tax = Decimal("0")
             capped = False
             household_taxable = Decimal("0")
@@ -411,8 +431,9 @@ class TaxService:
             primary_parts: Decimal | None = None
             for p in person_breakdowns:
                 person_obj = persons_by_id[p.person_id]
-                deps_for_this_person = num_dependents if person_obj.is_primary else 0
-                person_parts = compute_parts("single", deps_for_this_person)
+                minor_deps = num_minor_dependents if person_obj.is_primary else 0
+                adult_deps = num_adult_dependents if person_obj.is_primary else 0
+                person_parts = compute_parts("single", minor_deps, adult_deps)
                 person_tax, person_capped = compute_quotient_tax(
                     p.net_taxable_after_impatriate, person_parts, Decimal("1"), brackets, plafond
                 )

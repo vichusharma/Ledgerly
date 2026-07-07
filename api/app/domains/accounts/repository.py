@@ -1,6 +1,8 @@
 """Accounts repository — DB queries."""
 from __future__ import annotations
 
+import datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,9 +38,24 @@ class PersonRepository:
     async def get_person(self, person_id: int) -> Person | None:
         return await self.session.get(Person, person_id)
 
-    async def create_person(self, name: str, is_primary: bool, household_id: int) -> Person:
-        person = Person(name=name, is_primary=is_primary, household_id=household_id)
+    async def create_person(
+        self,
+        name: str,
+        is_primary: bool,
+        household_id: int,
+        date_of_birth: datetime.date | None = None,
+    ) -> Person:
+        person = Person(
+            name=name, is_primary=is_primary, household_id=household_id,
+            date_of_birth=date_of_birth,
+        )
         self.session.add(person)
+        await self.session.flush()
+        return person
+
+    async def update_person(self, person: Person, **kwargs: object) -> Person:
+        for k, v in kwargs.items():
+            setattr(person, k, v)
         await self.session.flush()
         return person
 

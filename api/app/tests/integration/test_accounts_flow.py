@@ -33,6 +33,38 @@ async def test_create_person(client: AsyncClient) -> None:
     assert res.json()["name"] == "Antoine"
 
 
+async def test_create_person_with_date_of_birth(client: AsyncClient) -> None:
+    await _setup_and_login(client)
+    res = await client.post("/api/v1/persons", json={
+        "name": "Theo", "is_primary": False, "date_of_birth": "2015-06-01",
+    })
+    assert res.status_code == 201
+    assert res.json()["date_of_birth"] == "2015-06-01"
+
+
+async def test_update_person_date_of_birth(client: AsyncClient) -> None:
+    await _setup_and_login(client)
+    res = await client.post("/api/v1/persons", json={"name": "Theo", "is_primary": False})
+    person = res.json()
+    assert person["date_of_birth"] is None
+
+    res = await client.patch(
+        f"/api/v1/persons/{person['id']}", json={"date_of_birth": "2015-06-01"}
+    )
+    assert res.status_code == 200
+    assert res.json()["date_of_birth"] == "2015-06-01"
+
+    persisted = (await client.get("/api/v1/persons")).json()
+    updated = next(p for p in persisted if p["id"] == person["id"])
+    assert updated["date_of_birth"] == "2015-06-01"
+
+
+async def test_update_unknown_person_404s(client: AsyncClient) -> None:
+    await _setup_and_login(client)
+    res = await client.patch("/api/v1/persons/99999", json={"date_of_birth": "2015-06-01"})
+    assert res.status_code == 404
+
+
 async def test_list_persons(client: AsyncClient) -> None:
     await _setup_and_login(client)
     await client.post("/api/v1/persons", json={"name": "Antoine", "is_primary": True})
