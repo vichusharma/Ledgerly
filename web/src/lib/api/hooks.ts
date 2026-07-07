@@ -498,3 +498,14 @@ export const useSetHouseholdTaxSettings = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tax", "household-settings"] }),
   });
 };
+
+// ── Tax estimate (Feature I3 — salary-only PAS reconciliation) ─────────────
+
+export const useTaxEstimate = (year: number, includeInvestments = false) =>
+  useQuery({
+    queryKey: ["tax", "estimate", year, includeInvestments],
+    queryFn: () =>
+      apiClient.get("/tax/estimate", {
+        params: { year, include_investments: includeInvestments },
+      }).then(r => r.data),
+  });

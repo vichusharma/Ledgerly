@@ -11,6 +11,7 @@ from app.domains.tax.schemas import (
     HouseholdTaxSettingsUpdateIn,
     PersonTaxProfileOut,
     PersonTaxProfileUpdateIn,
+    TaxEstimateOut,
 )
 from app.domains.tax.service import TaxService
 
@@ -50,5 +51,19 @@ async def set_household_tax_settings(
 ) -> HouseholdTaxSettingsOut:
     try:
         return await TaxService(db).set_household_tax_settings(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/tax/estimate", response_model=TaxEstimateOut)
+async def get_tax_estimate(
+    year: int,
+    include_investments: bool = False,
+    db: AsyncSession = Depends(get_db),
+) -> TaxEstimateOut:
+    """Stateless salary-only tax estimate for `year`. `include_investments`
+    is accepted for forward-compatibility but has no effect yet (Feature I4)."""
+    try:
+        return await TaxService(db).get_tax_estimate(year, include_investments)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
