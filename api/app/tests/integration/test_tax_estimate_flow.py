@@ -167,3 +167,194 @@ async def test_unknown_year_falls_back_to_latest_config(client: AsyncClient) -> 
     assert body["year"] == 2030
     assert body["bareme_tax_year_used"] == 2026
     assert "bareme_year_fallback" in body["simplifications_applied"]
+
+
+# ── Feature I4: investment income folded in ────────────────────────────────
+
+
+async def _account(
+    client: AsyncClient, owner_id: int, wrapper_type: str, opened_at: str,
+) -> dict:
+    res = await client.post("/api/v1/accounts", json={
+        "name": f"{wrapper_type} account", "type": "investment_wrapper",
+        "wrapper_type": wrapper_type, "owner_id": owner_id, "opened_at": opened_at,
+    })
+    assert res.status_code == 201
+    return res.json()
+
+
+async def _buy_lot(
+    client: AsyncClient, account_id: int, isin: str, quantity: str, price: str, settled_at: str,
+) -> int:
+    res = await client.post("/api/v1/portfolio/holdings", json={
+        "isin": isin, "quantity": quantity, "account_id": account_id,
+        "price": price, "name": isin, "settled_at": settled_at,
+    })
+    assert res.status_code == 201
+    return res.json()["instrument"]["id"]
+
+
+async def _sell_lot(
+    client: AsyncClient, account_id: int, instrument_id: int,
+    quantity: str, price: str, settled_at: str,
+) -> None:
+    res = await client.post("/api/v1/investment-lots", json={
+        "account_id": account_id, "instrument_id": instrument_id,
+        "lot_type": "sell", "quantity": quantity, "price": price, "settled_at": settled_at,
+    })
+    assert res.status_code == 201
+
+
+async def _dividend_lot(client: AsyncClient, account_id: int, amount: str, settled_at: str) -> None:
+    res = await client.post("/api/v1/investment-lots", json={
+        "account_id": account_id, "instrument_id": None,
+        "lot_type": "dividend", "quantity": "1", "price": amount, "settled_at": settled_at,
+    })
+    assert res.status_code == 201
+
+
+async def test_no_investment_lots_is_a_noop(client: AsyncClient) -> None:
+    await _login(client)
+    person = await _person(client)
+    await _payslip(client, person["id"], "2026-06-01", "60000", "54000", "5000")
+
+    without = (await client.get(
+        "/api/v1/tax/estimate", params={"year": 2026, "include_investments": False}
+    )).json()
+    with_inv = (await client.get(
+        "/api/v1/tax/estimate", params={"year": 2026, "include_investments": True}
+    )).json()
+
+    assert with_inv["investment_income"] is not None
+    assert float(with_inv["investment_income"]["realized_gains_total"]) == 0.0
+    assert float(with_inv["investment_income"]["dividends_total"]) == 0.0
+    assert float(with_inv["investment_income"]["taxable_investment_income"]) == 0.0
+    assert with_inv["investment_income"]["chosen_method"] == "pfu"
+    assert float(with_inv["estimated_tax"]) == float(without["estimated_tax"])
+    assert without["investment_income"] is None
+
+
+async def test_cto_realized_gain_taxed_via_pfu(client: AsyncClient) -> None:
+    await _login(client)
+    person = await _person(client)
+    await _payslip(client, person["id"], "2026-06-01", "60000", "54000", "5000")
+
+    acct = await _account(client, person["id"], "CTO", "2020-01-01")
+    instrument_id = await _buy_lot(client, acct["id"], "IE00B4L5Y983", "10", "100", "2025-01-01")
+    await _sell_lot(client, acct["id"], instrument_id, "10", "150", "2026-06-01")
+
+    res = await client.get(
+        "/api/v1/tax/estimate", params={"year": 2026, "include_investments": True}
+    )
+    body = res.json()
+    inv = body["investment_income"]
+
+    assert float(inv["realized_gains_total"]) == 500.0
+    assert float(inv["taxable_investment_income"]) == 500.0
+    assert inv["exemptions_applied"] == []
+    # PFU should be cheaper here (12.8% flat vs. a household already taxed
+    # in higher brackets from a 60k salary) — the estimate should reflect it.
+    assert inv["chosen_method"] == "pfu"
+    assert float(inv["pfu_total_tax"]) - float(inv["bareme_option_total_tax"]) <= 0
+
+
+async def test_pea_past_five_years_is_fully_exempt(client: AsyncClient) -> None:
+    await _login(client)
+    person = await _person(client)
+    await _payslip(client, person["id"], "2026-06-01", "60000", "54000", "5000")
+
+    acct = await _account(client, person["id"], "PEA", "2015-01-01")
+    instrument_id = await _buy_lot(client, acct["id"], "IE00B4L5Y983", "10", "100", "2020-01-01")
+    await _sell_lot(client, acct["id"], instrument_id, "10", "150", "2026-06-01")
+
+    res = await client.get(
+        "/api/v1/tax/estimate", params={"year": 2026, "include_investments": True}
+    )
+    inv = res.json()["investment_income"]
+
+    assert float(inv["realized_gains_total"]) == 500.0
+    assert float(inv["taxable_investment_income"]) == 0.0
+    assert "pea_five_year_exemption" in inv["exemptions_applied"]
+
+
+async def test_av_past_eight_years_gets_abattement(client: AsyncClient) -> None:
+    await _login(client)
+    person = await _person(client)
+    await _payslip(client, person["id"], "2026-06-01", "60000", "54000", "5000")
+
+    acct = await _account(client, person["id"], "AV", "2010-01-01")
+    instrument_id = await _buy_lot(client, acct["id"], "IE00B4L5Y983", "10", "100", "2020-01-01")
+    await _sell_lot(client, acct["id"], instrument_id, "10", "700", "2026-06-01")
+
+    res = await client.get(
+        "/api/v1/tax/estimate", params={"year": 2026, "include_investments": True}
+    )
+    inv = res.json()["investment_income"]
+
+    # gain = (700-100)*10 = 6000; single abattement 4600 -> taxable 1400
+    assert float(inv["realized_gains_total"]) == 6000.0
+    assert float(inv["taxable_investment_income"]) == 1400.0
+    assert "av_eight_year_abattement" in inv["exemptions_applied"]
+
+
+async def test_dividends_included_in_taxable_income(client: AsyncClient) -> None:
+    await _login(client)
+    person = await _person(client)
+    await _payslip(client, person["id"], "2026-06-01", "60000", "54000", "5000")
+
+    acct = await _account(client, person["id"], "CTO", "2020-01-01")
+    await _dividend_lot(client, acct["id"], "200", "2026-04-01")
+
+    res = await client.get(
+        "/api/v1/tax/estimate", params={"year": 2026, "include_investments": True}
+    )
+    inv = res.json()["investment_income"]
+
+    assert float(inv["dividends_total"]) == 200.0
+    assert float(inv["taxable_investment_income"]) == 200.0
+
+
+async def test_married_pacs_pools_investment_income_at_household_level(client: AsyncClient) -> None:
+    await _login(client)
+    antoine = await _person(client, "Antoine", True)
+    nancy = await _person(client, "Camille", False)
+    await _payslip(client, antoine["id"], "2026-06-01", "30000", "27000", "2000")
+    await _payslip(client, nancy["id"], "2026-06-01", "15000", "13500", "1000")
+    await client.put("/api/v1/tax/household-settings", json={
+        "filing_status": "married_pacs", "dependent_person_ids": [],
+    })
+
+    acct = await _account(client, nancy["id"], "CTO", "2020-01-01")
+    instrument_id = await _buy_lot(client, acct["id"], "IE00B4L5Y983", "10", "100", "2025-01-01")
+    await _sell_lot(client, acct["id"], instrument_id, "10", "150", "2026-06-01")
+
+    res = await client.get(
+        "/api/v1/tax/estimate", params={"year": 2026, "include_investments": True}
+    )
+    body = res.json()
+
+    assert float(body["investment_income"]["realized_gains_total"]) == 500.0
+    assert "single_filing_investment_income_attributed_to_primary" not in body[
+        "simplifications_applied"
+    ]
+
+
+async def test_single_filing_attributes_investment_income_to_primary(client: AsyncClient) -> None:
+    await _login(client)
+    antoine = await _person(client, "Antoine", True)
+    await _person(client, "Camille", False)
+    await _payslip(client, antoine["id"], "2026-06-01", "60000", "54000", "5000")
+
+    acct = await _account(client, antoine["id"], "CTO", "2020-01-01")
+    instrument_id = await _buy_lot(client, acct["id"], "IE00B4L5Y983", "10", "100", "2025-01-01")
+    await _sell_lot(client, acct["id"], instrument_id, "10", "150", "2026-06-01")
+
+    res = await client.get(
+        "/api/v1/tax/estimate", params={"year": 2026, "include_investments": True}
+    )
+    body = res.json()
+
+    assert float(body["investment_income"]["realized_gains_total"]) == 500.0
+    assert "single_filing_investment_income_attributed_to_primary" in body[
+        "simplifications_applied"
+    ]

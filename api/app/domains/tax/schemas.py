@@ -51,6 +51,18 @@ class PersonTaxEstimateOut(BaseModel):
     pas_withheld_projected_annual: Decimal
 
 
+class InvestmentIncomeOut(BaseModel):
+    """Feature I4 — realized capital gains + dividends folded into the
+    estimate, only populated when `include_investments=true`."""
+    realized_gains_total: Decimal
+    dividends_total: Decimal
+    taxable_investment_income: Decimal
+    exemptions_applied: list[str]
+    pfu_total_tax: Decimal
+    bareme_option_total_tax: Decimal
+    chosen_method: str  # "pfu" | "bareme"
+
+
 class TaxEstimateOut(BaseModel):
     year: int
     bareme_tax_year_used: int
@@ -63,6 +75,6 @@ class TaxEstimateOut(BaseModel):
     pas_withheld_ytd_total: Decimal
     pas_withheld_projected_annual_total: Decimal
     balance: Decimal
-    investment_income: None = None
+    investment_income: InvestmentIncomeOut | None = None
     persons: list[PersonTaxEstimateOut]
     simplifications_applied: list[str]

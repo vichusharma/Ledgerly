@@ -64,6 +64,7 @@ class AccountService:
             joint_owner_id=body.joint_owner_id,
             ownership_pct=body.ownership_pct,
             notes=body.notes,
+            opened_at=body.opened_at,
         )
         return AccountOut.model_validate(a)
 

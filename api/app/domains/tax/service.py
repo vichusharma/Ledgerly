@@ -12,15 +12,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.tax import (
     BaremeBracket,
+    LotEvent,
+    WrapperGain,
     apply_impatriate_exemption,
+    apply_wrapper_exemptions,
+    compare_pfu_vs_bareme,
     compute_parts,
     compute_quotient_tax,
+    compute_realized_gains_for_year,
     impatriate_years_remaining,
     project_annual_from_ytd,
     reconcile_withholding,
+    sum_dividends_for_year,
 )
 from app.domains.accounts.models import Person
-from app.domains.accounts.repository import PersonRepository
+from app.domains.accounts.repository import AccountRepository, PersonRepository
 from app.domains.salary.service import SalaryService
 from app.domains.tax.models import (
     FilingStatus,
@@ -31,6 +37,7 @@ from app.domains.tax.models import (
 from app.domains.tax.schemas import (
     HouseholdTaxSettingsOut,
     HouseholdTaxSettingsUpdateIn,
+    InvestmentIncomeOut,
     PersonTaxEstimateOut,
     PersonTaxProfileOut,
     PersonTaxProfileUpdateIn,
@@ -48,6 +55,17 @@ class _FallbackTaxYearConfig:
     tax_year: int
     brackets: list[dict]
     quotient_familial_plafond_per_half_part: Decimal
+
+
+@dataclass(frozen=True)
+class _RawInvestmentIncome:
+    """Investment-income figures before the PFU-vs-barème comparison (which
+    needs the salary side of the estimate to run), computed by
+    `_compute_investment_income`."""
+    realized_gains_total: Decimal
+    dividends_total: Decimal
+    taxable_investment_income: Decimal
+    exemptions_applied: list[str]
 
 
 _DEFAULT_TAX_YEAR_CONFIG = _FallbackTaxYearConfig(
@@ -168,12 +186,106 @@ class TaxService:
         # same in-code default rather than hard-failing the estimate.
         return _DEFAULT_TAX_YEAR_CONFIG, True
 
+    async def _compute_investment_income(
+        self, year: int, filing_status: str
+    ) -> _RawInvestmentIncome:
+        """Feature I4: realized capital gains + dividends across every
+        household-owned account, wrapper-exempted (PEA 5yr / AV 8yr) via
+        `apply_wrapper_exemptions`. Pulls the full lot history up to the tax
+        year's Dec 31 (not just `year` itself), since average-cost basis at
+        time of sale depends on every prior buy."""
+        from app.domains.accounts.models import WrapperType
+        from app.domains.investments.models import InvestmentLot, LotType
+
+        account_repo = AccountRepository(self.session)
+        persons = await self._person_repo.list_persons()
+        accounts = await account_repo.list_accounts(
+            person_ids=[p.id for p in persons], include_archived=True
+        )
+        account_map = {a.id: a for a in accounts}
+        if not account_map:
+            return _RawInvestmentIncome(Decimal("0"), Decimal("0"), Decimal("0"), [])
+
+        cutoff = datetime.date(year, 12, 31)
+        lots_result = await self.session.execute(
+            select(InvestmentLot).where(
+                InvestmentLot.account_id.in_(account_map.keys()),
+                InvestmentLot.lot_type.in_([LotType.buy, LotType.sell, LotType.dividend]),
+                InvestmentLot.settled_at <= cutoff,
+            )
+        )
+        lots = list(lots_result.scalars())
+
+        position_events: dict[tuple[int, int], list[LotEvent]] = {}
+        dividend_events: dict[int, list[LotEvent]] = {}
+        for lot in lots:
+            event = LotEvent(
+                lot_type=lot.lot_type,
+                quantity=lot.quantity,
+                price=lot.price,
+                fees=lot.fees,
+                settled_at=lot.settled_at,
+            )
+            if lot.lot_type == LotType.dividend:
+                dividend_events.setdefault(lot.account_id, []).append(event)
+            elif lot.instrument_id is not None:
+                position_events.setdefault((lot.account_id, lot.instrument_id), []).append(event)
+
+        realized_gains_total = Decimal("0")
+        account_gain: dict[int, Decimal] = {}
+        for (account_id, _instrument_id), events in position_events.items():
+            gain = compute_realized_gains_for_year(events, year)
+            realized_gains_total += gain
+            account_gain[account_id] = account_gain.get(account_id, Decimal("0")) + gain
+
+        account_dividends = {
+            account_id: sum_dividends_for_year(events, year)
+            for account_id, events in dividend_events.items()
+        }
+        dividends_total = sum(account_dividends.values(), Decimal("0"))
+
+        as_of = cutoff
+        wrapper_gains: list[WrapperGain] = []
+        for account_id in set(account_gain) | set(account_dividends):
+            account = account_map.get(account_id)
+            total_gain = account_gain.get(account_id, Decimal("0")) + account_dividends.get(
+                account_id, Decimal("0")
+            )
+            # `opened_at` has no API to set it today (see /accounts/{id}/tax-hints,
+            # the only other get_wrapper_hints caller) — accounts created via
+            # the normal flow always have it null, so fall back to
+            # created_at.date() the same way that endpoint does, rather than
+            # silently treating every account as wrapper-fact-unknown.
+            open_date = (
+                account.opened_at or account.created_at.date() if account else None
+            )
+            wrapper_gains.append(WrapperGain(
+                wrapper_type=(
+                    WrapperType(account.wrapper_type).value
+                    if account and account.wrapper_type else None
+                ),
+                account_open_date=open_date,
+                gain=total_gain,
+            ))
+
+        taxable_investment_income, exemption_keys = apply_wrapper_exemptions(
+            wrapper_gains, filing_status, as_of
+        )
+
+        return _RawInvestmentIncome(
+            realized_gains_total=realized_gains_total,
+            dividends_total=dividends_total,
+            taxable_investment_income=taxable_investment_income,
+            exemptions_applied=exemption_keys,
+        )
+
     async def get_tax_estimate(
         self, year: int, include_investments: bool = False
     ) -> TaxEstimateOut:
-        """Stateless salary-only tax estimate (Feature I3). Investment
-        income is always `None` until Feature I4 exists — `include_investments`
-        is accepted but has no effect yet."""
+        """Stateless tax estimate: salary alone (Feature I3), or salary plus
+        realized investment gains/dividends when `include_investments=true`
+        (Feature I4 — capital gains from the raw lot ledger, PEA/AV wrapper
+        exemptions, PFU-vs-barème comparison)."""
         household_settings = await self.get_household_tax_settings()
         persons = await self._person_repo.list_persons()
         salary_service = SalaryService(self.session)
@@ -193,8 +305,17 @@ class TaxService:
             "bareme_placeholder",
             "quotient_familial_general_case_only",
             "ytd_linear_extrapolation",
-            "capital_gains_not_included",
         ]
+        if include_investments:
+            simplifications.extend([
+                "capital_gains_average_cost_not_fifo",
+                "wrapper_exemption_pea_av_year_end",
+                "av_taxation_modeled_as_realized_not_withdrawal",
+                "social_charges_not_modeled",
+                "pfu_vs_bareme_household_wide_approximation",
+            ])
+        else:
+            simplifications.append("capital_gains_not_included")
         if used_fallback:
             simplifications.append("bareme_year_fallback")
 
@@ -286,6 +407,8 @@ class TaxService:
             capped = False
             household_taxable = Decimal("0")
             household_gross = Decimal("0")
+            primary_taxable: Decimal | None = None
+            primary_parts: Decimal | None = None
             for p in person_breakdowns:
                 person_obj = persons_by_id[p.person_id]
                 deps_for_this_person = num_dependents if person_obj.is_primary else 0
@@ -298,7 +421,48 @@ class TaxService:
                 capped = capped or person_capped
                 household_taxable += p.net_taxable_after_impatriate
                 household_gross += p.gross_annual_projected
+                if person_obj.is_primary:
+                    primary_taxable = p.net_taxable_after_impatriate
+                    primary_parts = person_parts
             top_level_parts = None
+
+        investment_income_out: InvestmentIncomeOut | None = None
+        if include_investments:
+            raw = await self._compute_investment_income(
+                year, household_settings.filing_status.value
+            )
+            if household_settings.filing_status == FilingStatus.married_pacs:
+                comp_taxable, comp_parts, comp_base_parts = household_taxable, parts, Decimal("2")
+            else:
+                comp_taxable = primary_taxable if primary_taxable is not None else Decimal("0")
+                comp_parts = primary_parts if primary_parts is not None else Decimal("1")
+                comp_base_parts = Decimal("1")
+                if raw.taxable_investment_income:
+                    simplifications.append("single_filing_investment_income_attributed_to_primary")
+
+            chosen, pfu_tax, bareme_tax = compare_pfu_vs_bareme(
+                comp_taxable, raw.taxable_investment_income,
+                comp_parts, comp_base_parts, brackets, plafond,
+            )
+            chosen_total = pfu_tax if chosen == "pfu" else bareme_tax
+
+            if household_settings.filing_status == FilingStatus.married_pacs:
+                estimated_tax = chosen_total
+            else:
+                primary_tax_alone, _ = compute_quotient_tax(
+                    comp_taxable, comp_parts, comp_base_parts, brackets, plafond
+                )
+                estimated_tax = estimated_tax - primary_tax_alone + chosen_total
+
+            investment_income_out = InvestmentIncomeOut(
+                realized_gains_total=raw.realized_gains_total,
+                dividends_total=raw.dividends_total,
+                taxable_investment_income=raw.taxable_investment_income,
+                exemptions_applied=raw.exemptions_applied,
+                pfu_total_tax=pfu_tax,
+                bareme_option_total_tax=bareme_tax,
+                chosen_method=chosen,
+            )
 
         pas_ytd_total = sum((p.pas_withheld_ytd for p in person_breakdowns), Decimal("0"))
         pas_annual_total = sum(
@@ -318,6 +482,7 @@ class TaxService:
             pas_withheld_ytd_total=pas_ytd_total,
             pas_withheld_projected_annual_total=pas_annual_total,
             balance=balance,
+            investment_income=investment_income_out,
             persons=person_breakdowns,
             simplifications_applied=simplifications,
         )

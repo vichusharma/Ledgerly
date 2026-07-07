@@ -12,13 +12,20 @@ from decimal import Decimal
 
 from app.core.tax import (
     BaremeBracket,
+    LotEvent,
+    WrapperGain,
     apply_bareme,
     apply_impatriate_exemption,
+    apply_wrapper_exemptions,
+    compare_pfu_vs_bareme,
     compute_parts,
+    compute_pfu,
     compute_quotient_tax,
+    compute_realized_gains_for_year,
     impatriate_years_remaining,
     project_annual_from_ytd,
     reconcile_withholding,
+    sum_dividends_for_year,
 )
 
 BRACKETS = [
@@ -165,3 +172,173 @@ class TestReconcileWithholding:
 
     def test_refund_balance_negative(self):
         assert reconcile_withholding(Decimal("8000"), Decimal("10000")) == Decimal("-2000")
+
+
+def _ev(lot_type: str, qty: str, price: str, fees: str, y: int, m: int, d: int) -> LotEvent:
+    return LotEvent(lot_type, Decimal(qty), Decimal(price), Decimal(fees), datetime.date(y, m, d))
+
+
+class TestComputeRealizedGainsForYear:
+    def test_simple_buy_then_sell_same_year(self):
+        events = [
+            _ev("buy", "10", "100", "0", 2026, 1, 5),
+            _ev("sell", "10", "150", "0", 2026, 6, 1),
+        ]
+        # proceeds 1500 - cost 1000 = 500
+        assert compute_realized_gains_for_year(events, 2026) == Decimal("500")
+
+    def test_average_cost_across_two_buys(self):
+        events = [
+            _ev("buy", "10", "100", "0", 2025, 1, 1),
+            _ev("buy", "10", "200", "0", 2025, 6, 1),
+            _ev("sell", "5", "300", "0", 2026, 3, 1),
+        ]
+        # avg cost = 3000/20 = 150/unit; cost of 5 sold = 750; proceeds 1500; gain 750
+        assert compute_realized_gains_for_year(events, 2026) == Decimal("750")
+
+    def test_sell_in_other_year_excluded(self):
+        events = [
+            _ev("buy", "10", "100", "0", 2024, 1, 1),
+            _ev("sell", "10", "150", "0", 2025, 6, 1),
+        ]
+        assert compute_realized_gains_for_year(events, 2026) == Decimal("0")
+
+    def test_fees_reduce_gain(self):
+        events = [
+            _ev("buy", "10", "100", "10", 2026, 1, 1),
+            _ev("sell", "10", "150", "5", 2026, 6, 1),
+        ]
+        # cost basis (10*100)+10=1010, avg cost 101/unit; proceeds (10*150)-5=1495
+        # cost of 10 sold = 1010; gain = 485
+        assert compute_realized_gains_for_year(events, 2026) == Decimal("485")
+
+    def test_sell_with_no_prior_buys_is_pure_proceeds(self):
+        events = [_ev("sell", "5", "100", "0", 2026, 1, 1)]
+        assert compute_realized_gains_for_year(events, 2026) == Decimal("500")
+
+    def test_loss_is_negative(self):
+        events = [
+            _ev("buy", "10", "200", "0", 2026, 1, 1),
+            _ev("sell", "10", "150", "0", 2026, 6, 1),
+        ]
+        assert compute_realized_gains_for_year(events, 2026) == Decimal("-500")
+
+
+class TestSumDividendsForYear:
+    def test_sums_dividends_in_year(self):
+        events = [
+            _ev("dividend", "1", "50", "0", 2026, 3, 1),
+            _ev("dividend", "1", "30", "0", 2026, 9, 1),
+        ]
+        assert sum_dividends_for_year(events, 2026) == Decimal("80")
+
+    def test_excludes_other_years_and_non_dividend_lots(self):
+        events = [
+            _ev("dividend", "1", "50", "0", 2025, 3, 1),
+            _ev("buy", "10", "100", "0", 2026, 1, 1),
+        ]
+        assert sum_dividends_for_year(events, 2026) == Decimal("0")
+
+
+class TestApplyWrapperExemptions:
+    def test_pea_past_five_years_fully_exempt(self):
+        gains = [WrapperGain("PEA", datetime.date(2018, 1, 1), Decimal("1000"))]
+        taxable, keys = apply_wrapper_exemptions(gains, "single", datetime.date(2026, 1, 1))
+        assert taxable == Decimal("0")
+        assert keys == ["pea_five_year_exemption"]
+
+    def test_pea_before_five_years_fully_taxable(self):
+        gains = [WrapperGain("PEA", datetime.date(2024, 1, 1), Decimal("1000"))]
+        taxable, keys = apply_wrapper_exemptions(gains, "single", datetime.date(2026, 1, 1))
+        assert taxable == Decimal("1000")
+        assert keys == []
+
+    def test_av_past_eight_years_abattement_single(self):
+        gains = [WrapperGain("AV", datetime.date(2015, 1, 1), Decimal("6000"))]
+        taxable, keys = apply_wrapper_exemptions(gains, "single", datetime.date(2026, 1, 1))
+        # 6000 - 4600 abattement = 1400
+        assert taxable == Decimal("1400")
+        assert keys == ["av_eight_year_abattement"]
+
+    def test_av_past_eight_years_abattement_married(self):
+        gains = [WrapperGain("AV", datetime.date(2015, 1, 1), Decimal("10000"))]
+        taxable, keys = apply_wrapper_exemptions(gains, "married_pacs", datetime.date(2026, 1, 1))
+        # 10000 - 9200 abattement = 800
+        assert taxable == Decimal("800")
+        assert keys == ["av_eight_year_abattement"]
+
+    def test_av_abattement_pooled_across_accounts(self):
+        gains = [
+            WrapperGain("AV", datetime.date(2015, 1, 1), Decimal("3000")),
+            WrapperGain("AV", datetime.date(2016, 1, 1), Decimal("3000")),
+        ]
+        taxable, keys = apply_wrapper_exemptions(gains, "single", datetime.date(2026, 1, 1))
+        # pooled 6000 - 4600 abattement = 1400, not 4600 applied twice
+        assert taxable == Decimal("1400")
+        assert keys == ["av_eight_year_abattement"]
+
+    def test_av_before_eight_years_fully_taxable(self):
+        gains = [WrapperGain("AV", datetime.date(2022, 1, 1), Decimal("1000"))]
+        taxable, keys = apply_wrapper_exemptions(gains, "single", datetime.date(2026, 1, 1))
+        assert taxable == Decimal("1000")
+        assert keys == []
+
+    def test_cto_never_exempt(self):
+        gains = [WrapperGain("CTO", datetime.date(2010, 1, 1), Decimal("1000"))]
+        taxable, keys = apply_wrapper_exemptions(gains, "single", datetime.date(2026, 1, 1))
+        assert taxable == Decimal("1000")
+        assert keys == []
+
+    def test_unknown_wrapper_facts_fully_taxable(self):
+        gains = [WrapperGain(None, None, Decimal("1000"))]
+        taxable, keys = apply_wrapper_exemptions(gains, "single", datetime.date(2026, 1, 1))
+        assert taxable == Decimal("1000")
+        assert keys == []
+
+    def test_loss_never_exempted_flows_through(self):
+        gains = [WrapperGain("PEA", datetime.date(2018, 1, 1), Decimal("-500"))]
+        taxable, keys = apply_wrapper_exemptions(gains, "single", datetime.date(2026, 1, 1))
+        assert taxable == Decimal("-500")
+        assert keys == []
+
+
+class TestComputePfu:
+    def test_flat_128_pct(self):
+        assert compute_pfu(Decimal("1000")) == Decimal("128.00")
+
+    def test_zero_or_negative_returns_zero(self):
+        assert compute_pfu(Decimal("0")) == Decimal("0")
+        assert compute_pfu(Decimal("-100")) == Decimal("0")
+
+
+class TestComparePfuVsBareme:
+    def test_zero_investment_income_is_a_noop(self):
+        salary_tax = apply_bareme(Decimal("40000"), BRACKETS)
+        one = Decimal("1")
+        chosen, pfu_tax, bareme_tax = compare_pfu_vs_bareme(
+            Decimal("40000"), Decimal("0"), one, one, BRACKETS, PLAFOND_PER_HALF_PART
+        )
+        assert chosen == "pfu"
+        assert pfu_tax == bareme_tax == salary_tax
+
+    def test_pfu_cheaper_at_high_marginal_rate(self):
+        # 40000 taxable already deep in higher brackets; adding 3000 more
+        # investment income to the barème costs more than the flat 12.8%.
+        one = Decimal("1")
+        chosen, pfu_tax, bareme_tax = compare_pfu_vs_bareme(
+            Decimal("100000"), Decimal("3000"), one, one, BRACKETS, PLAFOND_PER_HALF_PART
+        )
+        assert chosen == "pfu"
+        assert pfu_tax < bareme_tax
+
+    def test_bareme_cheaper_when_combined_income_stays_in_zero_bracket(self):
+        # Both salary (5000) and investment income (3000) stay under the
+        # 11497 zero-rate threshold even combined, so barème (0) beats PFU's
+        # flat 12.8% on the investment slice (384).
+        one = Decimal("1")
+        chosen, pfu_tax, bareme_tax = compare_pfu_vs_bareme(
+            Decimal("5000"), Decimal("3000"), one, one, BRACKETS, PLAFOND_PER_HALF_PART
+        )
+        assert chosen == "bareme"
+        assert bareme_tax == Decimal("0")
+        assert pfu_tax == Decimal("384.00")

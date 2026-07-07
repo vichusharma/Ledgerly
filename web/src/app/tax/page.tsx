@@ -16,8 +16,9 @@ export default function TaxPage() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState<number>(currentYear);
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  const [includeInvestments, setIncludeInvestments] = useState(false);
 
-  const { data: estimate, isLoading, isError } = useTaxEstimate(year);
+  const { data: estimate, isLoading, isError } = useTaxEstimate(year, includeInvestments);
 
   const inputCls = "mt-1 text-sm border border-surface-border dark:border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand/20 bg-white dark:bg-secondary dark:text-foreground";
   const labelCls = "block text-xs text-slate-500 dark:text-muted-foreground font-medium";
@@ -36,11 +37,22 @@ export default function TaxPage() {
             <h1 className="text-xl font-semibold text-slate-900 dark:text-foreground">{tx.title}</h1>
             <p className="text-sm text-slate-500 dark:text-muted-foreground mt-0.5">{tx.subtitle}</p>
           </div>
-          <div>
-            <label className={labelCls}>{tx.year}</label>
-            <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={inputCls}>
-              {years.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
+          <div className="flex items-end gap-4">
+            <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-muted-foreground pb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeInvestments}
+                onChange={(e) => setIncludeInvestments(e.target.checked)}
+                className="rounded border-surface-border dark:border-border text-brand focus:ring-brand/20"
+              />
+              {tx.includeInvestments}
+            </label>
+            <div>
+              <label className={labelCls}>{tx.year}</label>
+              <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={inputCls}>
+                {years.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -115,6 +127,67 @@ export default function TaxPage() {
                 </dl>
               </div>
             </div>
+
+            {estimate.investment_income && (
+              <div className={cardCls}>
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-foreground mb-3">{tx.investmentIncomeTitle}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500 dark:text-muted-foreground">{tx.realizedGains}</dt>
+                      <dd className="money text-slate-800 dark:text-foreground font-medium">
+                        {formatMoney(estimate.investment_income.realized_gains_total)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500 dark:text-muted-foreground">{tx.dividends}</dt>
+                      <dd className="money text-slate-800 dark:text-foreground font-medium">
+                        {formatMoney(estimate.investment_income.dividends_total)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between border-t border-surface-border dark:border-border pt-2">
+                      <dt className="text-slate-500 dark:text-muted-foreground">{tx.taxableInvestmentIncome}</dt>
+                      <dd className="money text-slate-800 dark:text-foreground font-medium">
+                        {formatMoney(estimate.investment_income.taxable_investment_income)}
+                      </dd>
+                    </div>
+                    <div className="pt-1">
+                      <dt className="text-slate-500 dark:text-muted-foreground text-xs mb-1">{tx.exemptionsAppliedTitle}</dt>
+                      {estimate.investment_income.exemptions_applied.length === 0 ? (
+                        <dd className="text-slate-400 dark:text-muted-foreground text-xs">{tx.noExemptions}</dd>
+                      ) : (
+                        <ul className="text-xs text-slate-600 dark:text-foreground space-y-1 list-disc list-inside">
+                          {estimate.investment_income.exemptions_applied.map((key: string) => (
+                            <li key={key}>{(tx as Record<string, string>)[`exemption_${key}`] ?? key}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </dl>
+                  <dl className="space-y-2 text-sm">
+                    <p className="text-xs font-semibold text-slate-500 dark:text-muted-foreground">{tx.pfuVsBaremeTitle}</p>
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500 dark:text-muted-foreground">{tx.pfuTotalTax}</dt>
+                      <dd className="money text-slate-800 dark:text-foreground font-medium">
+                        {formatMoney(estimate.investment_income.pfu_total_tax)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500 dark:text-muted-foreground">{tx.baremeOptionTotalTax}</dt>
+                      <dd className="money text-slate-800 dark:text-foreground font-medium">
+                        {formatMoney(estimate.investment_income.bareme_option_total_tax)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between border-t border-surface-border dark:border-border pt-2">
+                      <dt className="text-slate-500 dark:text-muted-foreground">{tx.chosenMethodLabel}</dt>
+                      <dd className="text-brand font-medium">
+                        {estimate.investment_income.chosen_method === "pfu" ? tx.chosenMethodPfu : tx.chosenMethodBareme}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            )}
 
             <div className={`${cardCls} overflow-hidden !p-0`}>
               <div className="px-5 py-4 border-b border-surface-border dark:border-border">

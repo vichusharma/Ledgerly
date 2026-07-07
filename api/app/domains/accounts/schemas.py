@@ -1,6 +1,7 @@
 """Accounts domain Pydantic schemas."""
 from __future__ import annotations
 
+import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -39,6 +40,7 @@ class AccountCreateIn(BaseModel):
     joint_owner_id: int | None = None
     ownership_pct: Decimal = Decimal("100.00")
     notes: str | None = None
+    opened_at: datetime.date | None = None
 
 
 class AccountUpdateIn(BaseModel):
@@ -50,6 +52,7 @@ class AccountUpdateIn(BaseModel):
     wrapper_type: WrapperType | None = None
     ownership_pct: Decimal | None = None
     notes: str | None = None
+    opened_at: datetime.date | None = None
 
 
 class AccountOut(BaseModel):
@@ -65,3 +68,4 @@ class AccountOut(BaseModel):
     ownership_pct: Decimal
     is_archived: bool
     notes: str | None
+    opened_at: datetime.date | None

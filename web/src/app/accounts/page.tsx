@@ -24,6 +24,7 @@ const wrapperOptionsFor = (type: string) =>
 const BLANK_FORM = {
   name: "", type: "bank", wrapper_type: "", institution: "",
   currency: "EUR", owner_id: "", joint_owner_id: "", ownership_pct: "100",
+  opened_at: "",
 };
 
 const PAGE_SIZE = 8;
@@ -119,6 +120,12 @@ function EditRow({ a, colSpan }: { a: any; colSpan: number }) {
                 <option value="">{ax.select}</option>
                 {wrapperOptionsFor(editForm.type).map(w => <option key={w} value={w}>{w}</option>)}
               </select>
+            </div>
+          )}
+          {showsWrapper(editForm.type) && (
+            <div>
+              <label className="text-xs text-slate-500 dark:text-muted-foreground" title={ax.openedAtHint}>{ax.openedAt}</label>
+              <input type="date" value={editForm.opened_at} onChange={e => setEditForm(f => ({ ...f, opened_at: e.target.value }))} className={inputClass} />
             </div>
           )}
           <div>
@@ -435,6 +442,7 @@ export default function AccountsPage() {
       owner_id: Number(form.owner_id),
       joint_owner_id: form.joint_owner_id ? Number(form.joint_owner_id) : null,
       ownership_pct: parseFloat(form.ownership_pct),
+      opened_at: form.opened_at || null,
     });
     setForm(BLANK_FORM);
     setShowForm(false);
@@ -449,6 +457,7 @@ export default function AccountsPage() {
       owner_id: String(a.owner_id),
       joint_owner_id: a.joint_owner_id ? String(a.joint_owner_id) : "",
       ownership_pct: String(a.ownership_pct),
+      opened_at: a.opened_at || "",
     });
     setEditingId(a.id);
     setArchiveConfirmId(null);
@@ -464,6 +473,7 @@ export default function AccountsPage() {
       joint_owner_id: editForm.joint_owner_id ? Number(editForm.joint_owner_id) : null,
       wrapper_type: editForm.wrapper_type || null,
       ownership_pct: parseFloat(editForm.ownership_pct),
+      opened_at: editForm.opened_at || null,
     });
     setEditingId(null);
   };
@@ -549,6 +559,12 @@ export default function AccountsPage() {
                       <option value="">{ax.select}</option>
                       {wrapperOptionsFor(form.type).map(w => <option key={w} value={w}>{w}</option>)}
                     </select>
+                  </div>
+                )}
+                {showsWrapper(form.type) && (
+                  <div>
+                    <label className="text-xs text-slate-500 dark:text-muted-foreground" title={ax.openedAtHint}>{ax.openedAt}</label>
+                    <input type="date" value={form.opened_at} onChange={e => setForm(f => ({ ...f, opened_at: e.target.value }))} className={inputClass} />
                   </div>
                 )}
                 <div>
