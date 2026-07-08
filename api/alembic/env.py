@@ -19,6 +19,7 @@ import app.domains.scenarios.models  # noqa: F401
 import app.domains.planning.models  # noqa: F401
 import app.domains.salary.models  # noqa: F401
 import app.domains.tax.models  # noqa: F401
+import app.domains.tax_filing.models  # noqa: F401
 from app.infra.settings import get_settings
 
 config = context.config

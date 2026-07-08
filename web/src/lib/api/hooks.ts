@@ -518,3 +518,289 @@ export const useTaxEstimate = (year: number, includeInvestments = false) =>
         params: { year, include_investments: includeInvestments },
       }).then(r => r.data),
   });
+
+// ── Tax filing — residency & treaties (Feature J1) ──────────────────────────
+
+export const useResidency = (personId?: number) =>
+  useQuery({
+    queryKey: ["tax-filing", "residency", personId],
+    queryFn: () => apiClient.get(`/tax-filing/residency/${personId}`).then(r => r.data),
+    enabled: personId != null,
+  });
+
+export const useSetResidency = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ personId, body }: { personId: number; body: object }) =>
+      apiClient.put(`/tax-filing/residency/${personId}`, body).then(r => r.data),
+    onSuccess: (_data, { personId }) =>
+      qc.invalidateQueries({ queryKey: ["tax-filing", "residency", personId] }),
+  });
+};
+
+export const useTreaties = () =>
+  useQuery({
+    queryKey: ["tax-filing", "treaties"],
+    queryFn: () => apiClient.get("/tax-filing/treaties").then(r => r.data),
+  });
+
+// ── Tax filing — RSU vesting (Feature J2) ───────────────────────────────────
+
+export const usePreviewRsuVesting = () =>
+  useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/tax-filing/rsu-vesting/preview", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+  });
+
+export const useConfirmRsuVesting = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/tax-filing/rsu-vesting", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lots"] });
+      qc.invalidateQueries({ queryKey: ["tax-filing", "documents"] });
+    },
+  });
+};
+
+// ── Tax filing — ESPP purchases (Feature J2) ────────────────────────────────
+
+export const usePreviewEsppPurchase = () =>
+  useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/tax-filing/espp-purchases/preview", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+  });
+
+export const useConfirmEsppPurchase = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/tax-filing/espp-purchases", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lots"] });
+      qc.invalidateQueries({ queryKey: ["tax-filing", "documents"] });
+    },
+  });
+};
+
+// ── Tax filing — foreign income, Form 2047 (Feature J2) ─────────────────────
+
+export const useForeignIncome = (personId?: number, taxYear?: number) =>
+  useQuery({
+    queryKey: ["tax-filing", "foreign-income", personId, taxYear],
+    queryFn: () =>
+      apiClient.get("/tax-filing/foreign-income", {
+        params: { person_id: personId, tax_year: taxYear },
+      }).then(r => r.data),
+  });
+
+export const usePreviewForeignIncome = () =>
+  useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/tax-filing/foreign-income/preview", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+  });
+
+export const useConfirmForeignIncome = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/tax-filing/foreign-income/confirm", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tax-filing", "foreign-income"] });
+      qc.invalidateQueries({ queryKey: ["tax-filing", "documents"] });
+    },
+  });
+};
+
+export const useCreateForeignIncome = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: object) => apiClient.post("/tax-filing/foreign-income", body).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tax-filing", "foreign-income"] }),
+  });
+};
+
+export const useUpdateForeignIncome = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: object }) =>
+      apiClient.put(`/tax-filing/foreign-income/${id}`, body).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tax-filing", "foreign-income"] }),
+  });
+};
+
+export const useDeleteForeignIncome = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/tax-filing/foreign-income/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tax-filing", "foreign-income"] }),
+  });
+};
+
+// ── Tax filing — foreign accounts, Form 3916 (Feature J2) ───────────────────
+
+export const useForeignAccounts = (personId?: number, taxYear?: number) =>
+  useQuery({
+    queryKey: ["tax-filing", "foreign-accounts", personId, taxYear],
+    queryFn: () =>
+      apiClient.get("/tax-filing/foreign-accounts", {
+        params: { person_id: personId, tax_year: taxYear },
+      }).then(r => r.data),
+  });
+
+export const usePreviewForeignAccount = () =>
+  useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/tax-filing/foreign-accounts/preview", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+  });
+
+export const useConfirmForeignAccount = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (form: FormData) =>
+      apiClient.post("/tax-filing/foreign-accounts/confirm", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tax-filing", "foreign-accounts"] });
+      qc.invalidateQueries({ queryKey: ["tax-filing", "documents"] });
+    },
+  });
+};
+
+export const useCreateForeignAccount = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: object) => apiClient.post("/tax-filing/foreign-accounts", body).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tax-filing", "foreign-accounts"] }),
+  });
+};
+
+export const useUpdateForeignAccount = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: object }) =>
+      apiClient.put(`/tax-filing/foreign-accounts/${id}`, body).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tax-filing", "foreign-accounts"] }),
+  });
+};
+
+export const useDeleteForeignAccount = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/tax-filing/foreign-accounts/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tax-filing", "foreign-accounts"] }),
+  });
+};
+
+// ── Tax filing — encrypted documents (Feature J3) ───────────────────────────
+
+export const useTaxDocuments = (personId?: number, taxYear?: number) =>
+  useQuery({
+    queryKey: ["tax-filing", "documents", personId, taxYear],
+    queryFn: () =>
+      apiClient.get("/tax-filing/documents", {
+        params: { person_id: personId, tax_year: taxYear },
+      }).then(r => r.data),
+  });
+
+export const useDownloadTaxDocument = () =>
+  useMutation({
+    mutationFn: async ({ id, filename }: { id: number; filename: string }) => {
+      const res = await apiClient.get(`/tax-filing/documents/${id}/download`, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+    },
+  });
+
+export const useDeleteTaxDocument = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/tax-filing/documents/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tax-filing", "documents"] }),
+  });
+};
+
+// ── Tax filing — FilingSnapshot compute/validate/lock (Feature J5) ──────────
+
+export const useFilingSnapshot = (year: number) =>
+  useQuery({
+    queryKey: ["tax-filing", "forms", year],
+    queryFn: () => apiClient.get(`/tax-filing/forms/${year}`).then(r => r.data),
+    retry: false,
+  });
+
+export const useComputeFiling = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (year: number) =>
+      apiClient.post("/tax-filing/compute", null, { params: { year } }).then(r => r.data),
+    onSuccess: (_data, year) =>
+      qc.invalidateQueries({ queryKey: ["tax-filing", "forms", year] }),
+  });
+};
+
+export const useValidateFiling = () =>
+  useMutation({
+    mutationFn: (year: number) =>
+      apiClient.post("/tax-filing/validate", null, { params: { year } }).then(r => r.data),
+  });
+
+export const useLockFiling = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (year: number) =>
+      apiClient.post(`/tax-filing/forms/${year}/lock`).then(r => r.data),
+    onSuccess: (_data, year) =>
+      qc.invalidateQueries({ queryKey: ["tax-filing", "forms", year] }),
+  });
+};
+
+export const useUnlockFiling = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (year: number) =>
+      apiClient.post(`/tax-filing/forms/${year}/unlock`).then(r => r.data),
+    onSuccess: (_data, year) =>
+      qc.invalidateQueries({ queryKey: ["tax-filing", "forms", year] }),
+  });
+};
+
+// ── Tax filing — Cerfa-facsimile PDF generation (Feature J6) ────────────────
+
+export const useGenerateFilingPdf = () =>
+  useMutation({
+    mutationFn: async ({
+      year, form, lock,
+    }: { year: number; form: "2042" | "2047" | "3916" | "all"; lock?: boolean }) => {
+      const res = await apiClient.post("/tax-filing/generate-pdf", null, {
+        params: { year, form, lock: lock ?? false },
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = form === "all" ? `ledgerly_filing_${year}.zip` : `${form}_${year}.pdf`;
+      a.click();
+    },
+  });

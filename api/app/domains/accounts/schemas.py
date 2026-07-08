@@ -49,6 +49,7 @@ class AccountCreateIn(BaseModel):
     ownership_pct: Decimal = Decimal("100.00")
     notes: str | None = None
     opened_at: datetime.date | None = None
+    country_code: str | None = None
 
 
 class AccountUpdateIn(BaseModel):
@@ -61,6 +62,7 @@ class AccountUpdateIn(BaseModel):
     ownership_pct: Decimal | None = None
     notes: str | None = None
     opened_at: datetime.date | None = None
+    country_code: str | None = None
 
 
 class AccountOut(BaseModel):
@@ -77,3 +79,4 @@ class AccountOut(BaseModel):
     is_archived: bool
     notes: str | None
     opened_at: datetime.date | None
+    country_code: str | None

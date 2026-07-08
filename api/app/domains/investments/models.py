@@ -116,6 +116,15 @@ class InvestmentLot(Base):
         ForeignKey("vesting_schedules.id"), nullable=True
     )
 
+    # ESPP fields (Epic J, Feature J2-S2) — modeled as extra nullable
+    # columns on a `buy`-type lot rather than a distinct LotType, since
+    # position/cost-basis math (_compute_positions) treats an ESPP
+    # purchase exactly like any other buy; these two fields only matter
+    # for Feature J4's tax-filing box mapping (ordinary-income-at-
+    # purchase vs. capital-gain-at-sale splitting is not modeled here).
+    fmv_at_acquisition: Mapped[Decimal | None] = mapped_column(Numeric(20, 6), nullable=True)
+    discount_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+
     instrument: Mapped["Instrument | None"] = relationship(
         "Instrument", back_populates="lots"
     )

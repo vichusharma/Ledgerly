@@ -188,16 +188,172 @@ class PlanningService:
                     default=str,
                 ),
             )
+
+            # Payslips (Epic I)
+            from app.domains.salary.models import Payslip
+            payslips = list((await self.session.execute(select(Payslip))).scalars())
+            zf.writestr(
+                "payslips.json",
+                json.dumps(
+                    [
+                        {
+                            "id": p.id, "person_id": p.person_id,
+                            "pay_period": p.pay_period, "employer": p.employer,
+                            "gross": p.gross, "net_taxable": p.net_taxable,
+                            "net_paid": p.net_paid,
+                        }
+                        for p in payslips
+                    ],
+                    default=str,
+                ),
+            )
+
+            # Household tax settings (Epic I) — personal (filing status +
+            # dependents choice), unlike `tax_year_configs` below.
+            from app.domains.tax.models import HouseholdTaxDependent, HouseholdTaxSettings
+            settings_rows = list(
+                (await self.session.execute(select(HouseholdTaxSettings))).scalars()
+            )
+            dependent_rows = list(
+                (await self.session.execute(select(HouseholdTaxDependent))).scalars()
+            )
+            zf.writestr(
+                "household_tax_settings.json",
+                json.dumps(
+                    {
+                        "settings": [
+                            {"id": s.id, "filing_status": str(s.filing_status)}
+                            for s in settings_rows
+                        ],
+                        "dependents": [
+                            {
+                                "household_tax_settings_id": d.household_tax_settings_id,
+                                "person_id": d.person_id,
+                            }
+                            for d in dependent_rows
+                        ],
+                    },
+                    default=str,
+                ),
+            )
+
+            # Epic J — tax filing (residency, foreign income/accounts,
+            # encrypted source documents). `treaty_metadata` is seeded
+            # reference data (the same for every user, not personal), so
+            # it's intentionally excluded here, same as `tax_year_configs`.
+            from app.domains.tax_filing.models import (
+                ForeignAccountDeclaration,
+                ForeignIncomeDeclaration,
+                PersonTaxResidency,
+                TaxDocument,
+            )
+            from app.infra.document_crypto import decrypt_bytes
+
+            residencies = list(
+                (await self.session.execute(select(PersonTaxResidency))).scalars()
+            )
+            zf.writestr(
+                "person_tax_residency.json",
+                json.dumps(
+                    [
+                        {
+                            "person_id": r.person_id,
+                            "home_country_code": r.home_country_code,
+                            "home_country_tax_id": r.home_country_tax_id,
+                            "french_tax_number": r.french_tax_number,
+                        }
+                        for r in residencies
+                    ],
+                    default=str,
+                ),
+            )
+            foreign_income = list(
+                (await self.session.execute(select(ForeignIncomeDeclaration))).scalars()
+            )
+            zf.writestr(
+                "foreign_income_declarations.json",
+                json.dumps(
+                    [
+                        {
+                            "id": r.id, "person_id": r.person_id, "tax_year": r.tax_year,
+                            "income_type": str(r.income_type),
+                            "source_country_code": r.source_country_code,
+                            "source_description": r.source_description,
+                            "gross_amount_eur": r.gross_amount_eur,
+                        }
+                        for r in foreign_income
+                    ],
+                    default=str,
+                ),
+            )
+            foreign_accounts = list(
+                (await self.session.execute(select(ForeignAccountDeclaration))).scalars()
+            )
+            zf.writestr(
+                "foreign_account_declarations.json",
+                json.dumps(
+                    [
+                        {
+                            "id": r.id, "person_id": r.person_id, "tax_year": r.tax_year,
+                            "bank_name": r.bank_name, "country_code": r.country_code,
+                            "account_identifier_masked": r.account_identifier_masked,
+                        }
+                        for r in foreign_accounts
+                    ],
+                    default=str,
+                ),
+            )
+            documents = list((await self.session.execute(select(TaxDocument))).scalars())
+            zf.writestr(
+                "tax_documents/manifest.json",
+                json.dumps(
+                    [
+                        {
+                            "id": d.id, "document_type": str(d.document_type),
+                            "original_filename": d.original_filename,
+                            "uploaded_at": d.uploaded_at,
+                        }
+                        for d in documents
+                    ],
+                    default=str,
+                ),
+            )
+            for d in documents:
+                # Decrypted at export time — the export itself is the
+                # user's own copy of their data, not at-rest storage.
+                zf.writestr(
+                    f"tax_documents/{d.id}_{d.original_filename}",
+                    decrypt_bytes(d.encrypted_content),
+                )
         return buf.getvalue()
 
     async def erase_all_data(self) -> None:
-        """GDPR hard erase — cascade-deletes all financial data."""
+        """GDPR hard erase — cascade-deletes all personal financial data.
+
+        Seeded reference tables (`tax_year_configs`, `treaty_metadata`)
+        are deliberately excluded — they're the same barème/treaty data
+        for every user, not personal data, and erasing them would just
+        require a reseed rather than protecting anyone's privacy.
+        """
         from sqlalchemy import text
         for table in [
             "account_snapshots", "amortization_rows", "investment_lots",
+            # `vesting_schedules` predates this session (Feature P2) but
+            # was never added here either — a pre-existing gap, only
+            # load-bearing now that Feature J2 is its first real writer
+            # (it holds RSU grant details, genuinely personal data).
+            # Deleted after `investment_lots` since lots FK to it.
+            "vesting_schedules",
             "instrument_prices", "transactions", "import_batches",
             "loans", "scenarios", "goals", "vacation_budgets",
-            "recurring_expenses", "accounts", "persons",
+            "recurring_expenses",
+            # Epic I (payslip/tax-estimate) — previously missing from
+            # this list entirely.
+            "payslips", "household_tax_dependents", "household_tax_settings",
+            # Epic J (tax filing) — new this session.
+            "tax_documents", "foreign_account_declarations",
+            "foreign_income_declarations", "person_tax_residency",
+            "accounts", "persons",
         ]:
             await self.session.execute(text(f"DELETE FROM {table}"))
         await self.session.flush()

@@ -163,6 +163,22 @@ class TaxService:
         await self.session.flush()
         return await self.get_household_tax_settings()
 
+    async def get_bareme_config(self, year: int) -> tuple[list[BaremeBracket], Decimal]:
+        """Public accessor for the barème brackets + quotient-familial
+        plafond used by `get_tax_estimate` — Feature J4/J5's
+        `tax_filing_rules` engine needs the exact same figures for its
+        foreign-tax-credit calculations, and must not duplicate this
+        table/fallback lookup."""
+        config, _ = await self._get_tax_year_config(year)
+        brackets = [
+            BaremeBracket(
+                None if b["up_to"] is None else Decimal(str(b["up_to"])),
+                Decimal(str(b["rate"])),
+            )
+            for b in config.brackets
+        ]
+        return brackets, config.quotient_familial_plafond_per_half_part
+
     async def _get_tax_year_config(
         self, year: int
     ) -> tuple[TaxYearConfig | _FallbackTaxYearConfig, bool]:

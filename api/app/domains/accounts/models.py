@@ -96,6 +96,9 @@ class Account(Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     opened_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    # Null means France (the implicit default for every existing account)
+    # — used for Form 3916 foreign bank account declarations (Epic J).
+    country_code: Mapped[str | None] = mapped_column(String(2), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

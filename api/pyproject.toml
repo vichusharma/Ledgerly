@@ -39,6 +39,8 @@ dependencies = [
     "pdfplumber>=0.11",
     # Crypto (at-rest encryption helpers)
     "cryptography>=42.0.0",
+    # PDF generation (Cerfa-style facsimile, Feature J6)
+    "reportlab>=4.0",
 ]
 
 [project.optional-dependencies]

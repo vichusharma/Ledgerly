@@ -149,6 +149,57 @@ Story point scale: XS=1, S=2, M=3, L=5, XL=8.
 
 ---
 
+## EPIC J — French Expat Tax Filing Module *(post-MVP, built 2026-07-07)*
+**Goal:** a filing-preparation layer on top of Epic I's tax *estimate* — foreign-source income (Form 2047), foreign bank accounts (Form 3916), RSU/ESPP equity comp, encrypted source-document retention, and a Cerfa-style PDF facsimile — for a foreigner who is a French tax resident (builds on the impatriate-regime work). Folded in from `docs/Backlog.md`, which has the full acceptance criteria and documented simplifications — see there for detail.
+
+### Feature J1 — Residency & per-person tax-filing facts
+- **J1-S1/S2** (M/S) *Per-person residency profile* (`PersonTaxResidency` — home country, home-country tax ID, French tax number) + API.
+- **J1-S3** (S) *Wizard residency step* (`ResidencyStep.tsx`, reused as Feature J7's first wizard step).
+- **J1-S4** (M) *Treaty metadata reference* — seeded for India/US/UK/Canada/Germany; any other country flags `treaty_method_defaulted_unseeded_country`.
+
+### Feature J2 — Foreign income/account data entry + parsers
+- **J2-S1/S2** (L/L) *RSU vesting + ESPP purchase parsers* — wire the long-dormant `VestingSchedule` table and two new nullable `InvestmentLot` columns (`fmv_at_acquisition`, `discount_pct`) into real use for the first time.
+- **J2-S3/S4** (M/M) *Foreign dividend + foreign bank statement parsers* → `ForeignIncomeDeclaration`/`ForeignAccountDeclaration` candidates.
+- **J2-S5** (M) *Confirm flows also persist the original document* via Feature J3's encrypted storage.
+- **J2-S6** (S) *`Account.country_code`* (null = France, same convention as `opened_at`) + Accounts page field.
+- **J2-S7** (M) *Manual CRUD* for both declaration types (entries with no source document).
+- **J2-S8** (S) *i18n.*
+
+### Feature J3 — Encrypted document storage
+- **J3-S1/S2** (L/M) *Crypto helper + `TaxDocument` table* — Fernet encryption keyed from the previously-unused `Settings.encryption_key`; built ahead of Feature J2 since its confirm flows depend on it.
+- **J3-S3/S4** (S/S) *List/download/delete* endpoints (download decrypts + streams, logs the access).
+- **J3-S5** (M) *GDPR wiring* — `export_all_data()`/`erase_all_data()` extended for every Epic J table, and the pre-existing gap that Epic I's own tables were never in the erase list either was closed at the same time. Seeded reference tables (`tax_year_configs`, `treaty_metadata`) are deliberately excluded from both — not personal data.
+
+### Feature J4 — `tax_filing_rules` engine
+- **J4-S1/S2** (L/L) *Foreign tax credit* — both real elimination methods (crédit d'impôt égal à l'impôt français; exemption avec taux effectif), golden-tested against `core/tax.py`'s existing quotient-familial math (no duplication).
+- **J4-S3** (M) *Per-line method resolution* — override → treaty default → credit-method fallback.
+- **J4-S4/S5** (M/M) *Box mapping* for 2042 (salary + investment-income boxes), 2047, 3916 — representative box codes, disclosed as unverified.
+- **J4-S6** (S) *Validation* (`validate_filing_inputs` — missing residency, undeclared-account foreign income, missing documents).
+
+### Feature J5 — `FilingSnapshot` compute/validate/lock
+- **J5-S1** (L) *Compute endpoint* — upserts a JSONB snapshot from Epic I's estimate + Feature J4's mapping; 409s if locked.
+- **J5-S2/S3** (S/S) *Stable read + validate* endpoints.
+- **J5-S4** (S) *Lock/unlock* — a direct lock endpoint was added (not deferred entirely to J6's generate-pdf convenience) so locking is testable independently.
+
+### Feature J6 — Cerfa-style PDF generation ⚠️ *highest-risk feature, built smoothly*
+- **J6-S1** (XL) *Box-layout data + generic `reportlab` renderer* — fixed grid for 2042, dynamic per-line layouts for 2047/3916.
+- **J6-S2** (M) *Generate-pdf endpoint* — single form or a zipped bundle of all three.
+- **J6-S3** (S) *Facsimile disclaimer footer* on every generated page.
+
+### Feature J7 — Frontend wizard
+- **J7-S1** (M) *`StepIndicator`* — the app's first reusable numbered-progress component.
+- **J7-S2-S6** — built as **5 steps** (Residency / ForeignIncome+equity-comp / ForeignAccounts / Deductions&Credits / Summary&Validation): the planned "income sources" and "foreign income" wizard stages share identical upload mechanics and were consolidated into one `ForeignIncomeStep` component.
+- **J7-S7/S8** (S/S) *Page assembly + i18n* (96 FR/EN keys, parity verified programmatically).
+- **Verified live in-browser** end-to-end against the real household: full navigation, manual entry create/list/delete, auto-computed credit preview, compute/validate/generate-PDF/recompute all confirmed with real numbers, no console errors.
+
+### Feature J8 — Polish
+- **J8-S1** (S) *Optional Dashboard tile* — "Tax filing" KPI linking to `/tax-filing`, mirrors I5-S1.
+- **J8-S2** (XS) *Docs housekeeping* — `tax_filing` domain + `pdf`/`parsers` sub-packages added to ARCHITECTURE.md.
+- **J8-S3** (S) *Wording pass* — reviewed all new disclaimer/simplification copy (FR+EN); already conservative and explicitly says "not tax advice," no changes needed.
+- **J8-S4** *Folded into EPICS.md/PROGRESS.md* (this section).
+
+---
+
 ## Phase rollup (see [MVP](./MVP.md))
 - **P1 (MVP):** A1,A2 · B1,B2 · C1,C2-S1,C3 · D1 · E1 · F1 · G1 · H1,H2,H3 — *consolidated net worth + real returns + the flagship simulator.*
 - **P2:** account archive, batch rollback, recurring expenses, vesting, prepayment, goal feasibility, vacation budget, GDPR export.

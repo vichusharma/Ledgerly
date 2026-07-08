@@ -75,6 +75,7 @@ class AccountService:
             ownership_pct=body.ownership_pct,
             notes=body.notes,
             opened_at=body.opened_at,
+            country_code=body.country_code,
         )
         return AccountOut.model_validate(a)
 

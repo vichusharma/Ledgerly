@@ -6,6 +6,45 @@ All data stays on your computer. No cloud sync, no subscriptions, no telemetry.
 
 ---
 
+## Hero features
+
+### 🧾 Household tax estimation
+
+Upload monthly French payslips (*bulletins de paie*) and Ledgerly extracts gross/net-imposable/PAS-withheld/employer automatically — review and correct before saving, then track history and a trend chart per person. From there it computes a live income-tax estimate:
+
+- Barème progressif + quotient familial, including the plafonnement cap on the advantage from dependents
+- **Régime des impatriés** (Art. 155 B CGI) — per-person 8-year exemption window, flat-30% method
+- Realized investment gains and dividends folded in, with PEA (5yr) / Assurance Vie (8yr) wrapper exemptions and a PFU-vs-barème comparison
+- Reconciled against tax already withheld at source (PAS) to project your balance — owe or refund
+
+Every simplification (average-cost accounting, general-case plafonnement, linear YTD projection, etc.) is disclosed in the UI, not hidden. This is an estimate for informational purposes — not tax advice.
+
+### 🌍 French expat tax filing
+
+A guided, multi-step filing-preparation wizard for a foreign tax resident in France who also has income and accounts back home:
+
+- Per-person tax residency facts + a double-taxation-treaty reference table
+- RSU vesting and ESPP purchase confirmations, parsed and reviewed before saving
+- Foreign dividends/interest (Form 2047) and foreign bank accounts (Form 3916), each with **encrypted, locally-stored source documents** as an audit trail
+- A real treaty-elimination engine — crédit d'impôt égal à l'impôt français *or* exonération avec taux effectif, resolved per income line
+- A lockable filing snapshot and a Cerfa-style facsimile PDF generator for Forms 2042/2047/3916
+
+Like the tax estimate, this runs entirely on your machine and is explicitly a structural recreation of the official forms, not a certified copy — box codes should be checked against the current DGFiP instructions before any real filing.
+
+---
+
+## Disclaimer
+
+Ledgerly is a personal finance tool, not a professional advisory service. Nothing it displays — net worth figures, investment performance, tax estimates, pension projections, Monte Carlo simulations, or the generated 2042/2047/3916 filing documents — constitutes financial, tax, legal, or investment advice, and none of it should be relied upon as a substitute for professional guidance.
+
+- **Not certified or verified.** Tax calculations (barème progressif, quotient familial, régime des impatriés, PFU-vs-barème, foreign tax credits) are estimates built from publicly available rules and documented simplifications (see `docs/Backlog.md`). They are not certified by a chartered accountant, tax advisor, or any government body.
+- **Not an official form.** The generated Cerfa-style PDFs (2042/2047/3916) are structural recreations for preparation purposes only — not copies of, and not accepted as substitutes for, the official DGFiP forms.
+- **No warranty.** Ledgerly is provided "as is," without warranty of any kind, express or implied, including without limitation accuracy, completeness, or fitness for a particular purpose. Software has bugs; tax law changes yearly; your situation may not match the assumptions built into this tool.
+- **Your responsibility.** You are solely responsible for verifying all figures, box codes, and forms against current official guidance before filing, and for any decisions made using this software.
+- **Consult a professional.** Before making financial decisions or filing taxes based on anything in this app, consult a qualified, licensed tax advisor (expert-comptable / avocat fiscaliste), financial advisor, or the relevant tax authority (DGFiP). The authors and contributors accept no liability for any loss, penalty, or damage arising from use of this software.
+
+---
+
 ## What it does
 
 - **Net worth** — assets, liabilities, and a monthly time-series across the whole household or per person
@@ -15,6 +54,8 @@ All data stays on your computer. No cloud sync, no subscriptions, no telemetry.
 - **Scenarios** — invest-vs-prepay simulator with low/base/high return assumptions and breakeven month; Monte Carlo projection (p10/p50/p90 bands across 1 000 paths)
 - **Goals** — financial independence target, projected reach date, on/off-track status
 - **Pension** — French state pension simulator (régime général + AGIRC-ARRCO); inputs birth year, career start, current salary, growth rate, and planned retirement year; outputs monthly pension, replacement ratio, SAM, AGIRC-ARRCO points, and a sensitivity table across retirement ages; 2026 constants (PASS, décote/surcote, minimum contributif)
+- **Salary & tax estimate** — payslip ingestion with trend history; household income-tax estimate (barème, quotient familial, régime des impatriés, PEA/AV exemptions, PFU-vs-barème) reconciled against PAS withholding — see [Hero features](#hero-features)
+- **Expat tax filing** — residency facts, RSU/ESPP/foreign-income/foreign-account ingestion with encrypted document retention, a treaty-elimination engine, and Cerfa-style 2042/2047/3916 PDF generation — see [Hero features](#hero-features)
 - **Planning** — vacation budgets, recurring expenses
 - **GDPR** — full data export (JSON + CSV ZIP) and hard erase
 
@@ -280,7 +321,7 @@ ledgerly/
 │       ├── components/     # Shared UI components
 │       └── lib/            # API client, TanStack Query hooks, formatters
 ├── scripts/                # backup.sh, restore.sh, seed.py, verify.sh
-├── docs/PROGRESS.md        # Build tracker (all 37 stories)
+├── docs/PROGRESS.md        # Build tracker (MVP + Epic I payslip/tax estimate + Epic J expat filing)
 ├── docker-compose.yml      # Production stack
 ├── docker-compose.test.yml # Test stack (ephemeral DB)
 └── Caddyfile               # Reverse proxy config

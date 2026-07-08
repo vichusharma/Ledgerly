@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, PieChart, CreditCard, Receipt,
   TrendingUp, Target, Wallet, Upload, Settings, Landmark, Banknote, Percent,
-  Command, LogOut, ChevronLeft, ChevronRight, Sun, Moon, Globe,
+  Command, LogOut, ChevronLeft, ChevronRight, Sun, Moon, Globe, FileText,
 } from "lucide-react";
 import { CommandPalette } from "./CommandPalette";
 import { ScopeToggle } from "./finance/ScopeToggle";
@@ -36,6 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/pension",               icon: Landmark,         label: nav.pension },
     { href: "/salary",                icon: Banknote,         label: nav.salary },
     { href: "/tax",                   icon: Percent,          label: nav.tax },
+    { href: "/tax-filing",            icon: FileText,         label: nav.taxFiling },
     { href: "/accounts",              icon: Wallet,           label: nav.accounts },
     { href: "/import",                icon: Upload,           label: nav.import },
     { href: "/settings",              icon: Settings,         label: nav.settings },
@@ -180,6 +181,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </>
             )}
           </button>
+
+          {!collapsed && (
+            <p
+              title={nav.disclaimerFull}
+              className="px-3 pt-2 text-[10px] leading-snug text-slate-400 dark:text-muted-foreground border-t border-surface-border dark:border-border cursor-help"
+            >
+              {nav.disclaimerShort}
+            </p>
+          )}
         </div>
       </aside>
 

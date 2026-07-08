@@ -74,11 +74,12 @@ A **modular monolith**: each domain is a self-contained module exposing a servic
 │      ▼                                                                │
 │  domains/    accounts │ transactions │ investments │ liabilities │   │
 │              networth │ scenarios    │ planning     │ imports     │   │
-│              pension  │ salary       │ tax                          │   │
+│              pension  │ salary       │ tax          │ tax_filing  │   │
 │      │ each = service.py + repository.py + models.py + schemas.py     │
 │      ▼ call                                                           │
 │  core/       money │ amortization │ performance(twr,xirr) │          │
-│              allocation │ simulation │ projection │ pension │ tax    │
+│              allocation │ simulation │ projection │ pension │ tax │  │
+│              tax_filing_rules                                        │
 │                                                        (PURE, tested) │
 │      ▼ persist via                                                    │
 │  infra/      db (SQLAlchemy) │ migrations │ security(crypto,auth) │   │
@@ -148,9 +149,12 @@ ledgerly/
 │  │  ├─ domains/                # accounts, transactions, investments,
 │  │  │                          #   liabilities, networth, scenarios,
 │  │  │                          #   planning, imports, pension,
-│  │  │                          #   salary, tax
+│  │  │                          #   salary, tax, tax_filing (+ pdf/,
+│  │  │                          #   parsers/ sub-packages — Epic J
+│  │  │                          #   Cerfa-facsimile filing prep)
 │  │  ├─ core/                   # pure math: money, amortization,
-│  │  │                          #   performance, allocation, simulation
+│  │  │                          #   performance, allocation, simulation,
+│  │  │                          #   tax, tax_filing_rules
 │  │  ├─ infra/                  # db, security, scheduler, price_provider, settings
 │  │  └─ tests/                  # unit (core golden tests) + integration
 │  └─ alembic/                   # migrations

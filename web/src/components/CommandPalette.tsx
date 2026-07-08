@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
   LayoutDashboard, PieChart, CreditCard, Receipt,
-  TrendingUp, Target, Wallet, Upload, Settings, Banknote, Percent,
+  TrendingUp, Target, Wallet, Upload, Settings, Banknote, Percent, FileText,
 } from "lucide-react";
 import { useLanguage } from "@/lib/context/LanguageContext";
 
@@ -28,6 +28,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
     { label: cmd.goals,       href: "/goals",                 icon: Target },
     { label: cmd.salary,      href: "/salary",                icon: Banknote },
     { label: cmd.tax,         href: "/tax",                   icon: Percent },
+    { label: cmd.taxFiling,   href: "/tax-filing",            icon: FileText },
     { label: cmd.accounts,    href: "/accounts",              icon: Wallet },
     { label: cmd.import,      href: "/import",                icon: Upload },
     { label: cmd.settings,    href: "/settings",              icon: Settings },

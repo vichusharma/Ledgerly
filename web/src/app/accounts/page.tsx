@@ -24,7 +24,7 @@ const wrapperOptionsFor = (type: string) =>
 const BLANK_FORM = {
   name: "", type: "bank", wrapper_type: "", institution: "",
   currency: "EUR", owner_id: "", joint_owner_id: "", ownership_pct: "100",
-  opened_at: "",
+  opened_at: "", country_code: "",
 };
 
 const PAGE_SIZE = 8;
@@ -128,6 +128,10 @@ function EditRow({ a, colSpan }: { a: any; colSpan: number }) {
               <input type="date" value={editForm.opened_at} onChange={e => setEditForm(f => ({ ...f, opened_at: e.target.value }))} className={inputClass} />
             </div>
           )}
+          <div>
+            <label className="text-xs text-slate-500 dark:text-muted-foreground" title={ax.countryCodeHint}>{ax.countryCode}</label>
+            <input maxLength={2} value={editForm.country_code} onChange={e => setEditForm(f => ({ ...f, country_code: e.target.value.toUpperCase() }))} className={inputClass} placeholder="FR" />
+          </div>
           <div>
             <label className="text-xs text-slate-500 dark:text-muted-foreground">{ax.owner}</label>
             <select value={editForm.owner_id} onChange={e => setEditForm(f => ({ ...f, owner_id: e.target.value, joint_owner_id: e.target.value === f.joint_owner_id ? "" : f.joint_owner_id }))} className={selectClass}>
@@ -443,6 +447,7 @@ export default function AccountsPage() {
       joint_owner_id: form.joint_owner_id ? Number(form.joint_owner_id) : null,
       ownership_pct: parseFloat(form.ownership_pct),
       opened_at: form.opened_at || null,
+      country_code: form.country_code || null,
     });
     setForm(BLANK_FORM);
     setShowForm(false);
@@ -458,6 +463,7 @@ export default function AccountsPage() {
       joint_owner_id: a.joint_owner_id ? String(a.joint_owner_id) : "",
       ownership_pct: String(a.ownership_pct),
       opened_at: a.opened_at || "",
+      country_code: a.country_code || "",
     });
     setEditingId(a.id);
     setArchiveConfirmId(null);
@@ -474,6 +480,7 @@ export default function AccountsPage() {
       wrapper_type: editForm.wrapper_type || null,
       ownership_pct: parseFloat(editForm.ownership_pct),
       opened_at: editForm.opened_at || null,
+      country_code: editForm.country_code || null,
     });
     setEditingId(null);
   };
@@ -567,6 +574,10 @@ export default function AccountsPage() {
                     <input type="date" value={form.opened_at} onChange={e => setForm(f => ({ ...f, opened_at: e.target.value }))} className={inputClass} />
                   </div>
                 )}
+                <div>
+                  <label className="text-xs text-slate-500 dark:text-muted-foreground" title={ax.countryCodeHint}>{ax.countryCode}</label>
+                  <input maxLength={2} value={form.country_code} onChange={e => setForm(f => ({ ...f, country_code: e.target.value.toUpperCase() }))} className={inputClass} placeholder="FR" />
+                </div>
                 <div>
                   <label className="text-xs text-slate-500 dark:text-muted-foreground">{ax.institution}</label>
                   <InstitutionCombobox value={form.institution} onChange={val => setForm(f => ({ ...f, institution: val }))} placeholder={ax.institutionPlaceholder} inputClass={inputClass} />

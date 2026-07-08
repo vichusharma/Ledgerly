@@ -11,6 +11,7 @@ import { AllocationChart } from "@/components/charts/AllocationChart";
 import {
   useNetWorth, useNetWorthSeries, usePortfolioPerformance,
   usePortfolioAllocation, useTransactionAnalytics, useTaxEstimate,
+  useFilingSnapshot,
 } from "@/lib/api/hooks";
 import { useScope } from "@/lib/hooks/useScope";
 import { useLanguage } from "@/lib/context/LanguageContext";
@@ -24,6 +25,7 @@ export default function DashboardPage() {
   const { data: alloc } = usePortfolioAllocation(scope);
   const { data: analytics } = useTransactionAnalytics();
   const { data: taxEstimate } = useTaxEstimate(new Date().getFullYear());
+  const { data: filingSnapshot } = useFilingSnapshot(new Date().getFullYear());
   const { t } = useLanguage();
   const dx = t("dashboard");
   const px = t("portfolio");
@@ -31,6 +33,8 @@ export default function DashboardPage() {
 
   const taxBalance = taxEstimate ? Number(taxEstimate.balance) : 0;
   const taxOwes = taxBalance > 0;
+  const filingBalance = filingSnapshot ? Number(filingSnapshot.payload.balance) : 0;
+  const filingOwes = filingBalance > 0;
 
   const byMonth = (analytics?.by_month ?? []).map((m: any) => ({
     month: m.month, spent: Number(m.spent), income: Number(m.income),
@@ -66,6 +70,17 @@ export default function DashboardPage() {
                   value={formatMoney(Math.abs(taxBalance))}
                   subtitle={taxOwes ? tx.balanceOwe : tx.balanceRefund}
                   trend={taxOwes ? -1 : 1}
+                  className="h-full"
+                />
+              </Link>
+            )}
+            {filingSnapshot && (
+              <Link href="/tax-filing" className="flex-1 block hover:opacity-90 transition-opacity">
+                <KpiCard
+                  title={dx.taxFilingTitle}
+                  value={formatMoney(Math.abs(filingBalance))}
+                  subtitle={filingOwes ? tx.balanceOwe : tx.balanceRefund}
+                  trend={filingOwes ? -1 : 1}
                   className="h-full"
                 />
               </Link>

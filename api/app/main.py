@@ -65,6 +65,7 @@ def create_app() -> FastAPI:
     from app.api.pension import router as pension_router
     from app.api.salary import router as salary_router
     from app.api.tax import router as tax_router
+    from app.api.tax_filing import router as tax_filing_router
 
     prefix = "/api/v1"
     app.include_router(auth_router, prefix=prefix)
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(pension_router, prefix=prefix)
     app.include_router(salary_router, prefix=prefix)
     app.include_router(tax_router, prefix=prefix)
+    app.include_router(tax_filing_router, prefix=prefix)
 
     @app.get("/health", tags=["ops"])
     async def health() -> dict[str, str]:
