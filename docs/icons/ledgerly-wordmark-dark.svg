@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 220" width="680" height="220">
+  <g transform="rotate(-8 100 103)">
+    <rect x="50" y="70" width="110" height="18" rx="9" fill="#9FE1CB"/>
+    <rect x="50" y="94" width="90" height="18" rx="9" fill="#5DCAA5"/>
+    <rect x="50" y="118" width="68" height="18" rx="9" fill="#1D9E75"/>
+    <circle cx="160" cy="79" r="8" fill="#F2A623"/>
+  </g>
+  <text x="205" y="130" font-size="64" font-weight="600" font-family="Helvetica, Arial, sans-serif" fill="#FFFFFF">Ledgerly</text>
+</svg>

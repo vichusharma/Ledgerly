@@ -65,9 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         {/* Logo */}
         <div className="flex items-center gap-2 px-4 h-14 border-b border-surface-border dark:border-border">
-          <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-            L
-          </div>
+          <img src="/ledgerly-mark.svg" alt="Ledgerly" className="w-7 h-7 flex-shrink-0" />
           {!collapsed && (
             <span className="font-semibold text-slate-800 dark:text-foreground text-sm tracking-tight">Ledgerly</span>
           )}

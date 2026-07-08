@@ -65,9 +65,7 @@ export default function SetupPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-brand flex items-center justify-center text-white font-bold text-xl mx-auto mb-3">
-            L
-          </div>
+          <img src="/ledgerly-mark.svg" alt="Ledgerly" className="w-12 h-12 mx-auto mb-3" />
           <h1 className="text-xl font-semibold text-slate-900 dark:text-foreground">Ledgerly</h1>
           <p className="text-sm text-slate-500 dark:text-muted-foreground mt-1">{sx.subtitle}</p>
         </div>
