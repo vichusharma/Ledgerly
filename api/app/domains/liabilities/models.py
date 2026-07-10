@@ -35,10 +35,13 @@ class Loan(Base):
     payment_day: Mapped[int] = mapped_column(Integer, default=5)  # day of month
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
 
-    # P2: accumulated prepayments (for recompute)
+    # P2: accumulated prepayments (running total, for display only — the actual
+    # schedule recompute is anchored at each prepayment's applied_date, not this sum)
     extra_principal_paid: Mapped[Decimal] = mapped_column(
         Numeric(20, 4), default=Decimal("0")
     )
+    # Optional override for the computed EMI (e.g. the bank's real quoted payment).
+    manual_payment: Mapped[Decimal | None] = mapped_column(Numeric(20, 4), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     amortization_rows: Mapped[list["AmortizationRow"]] = relationship(

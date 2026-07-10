@@ -10,6 +10,7 @@ import { Sun, Moon, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LabelManager } from "@/components/settings/LabelManager";
 import { TaxProfileSection } from "@/components/settings/TaxProfileSection";
+import { LoansSection } from "@/components/settings/LoansSection";
 
 export default function SettingsPage() {
   const { data: persons = [], refetch } = usePersons();
@@ -225,6 +226,11 @@ export default function SettingsPage() {
         {/* Tax profile */}
         <section className={sectionClass}>
           <TaxProfileSection />
+        </section>
+
+        {/* Loans */}
+        <section className={sectionClass}>
+          <LoansSection />
         </section>
 
         {/* Labels & rules */}

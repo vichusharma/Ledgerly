@@ -50,6 +50,7 @@ class AccountCreateIn(BaseModel):
     notes: str | None = None
     opened_at: datetime.date | None = None
     country_code: str | None = None
+    manual_balance: Decimal | None = None
 
 
 class AccountUpdateIn(BaseModel):
@@ -63,6 +64,7 @@ class AccountUpdateIn(BaseModel):
     notes: str | None = None
     opened_at: datetime.date | None = None
     country_code: str | None = None
+    manual_balance: Decimal | None = None
 
 
 class AccountOut(BaseModel):
@@ -80,3 +82,4 @@ class AccountOut(BaseModel):
     notes: str | None
     opened_at: datetime.date | None
     country_code: str | None
+    manual_balance: Decimal | None

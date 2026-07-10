@@ -56,17 +56,24 @@ Conventions: PK `id BIGINT GENERATED ALWAYS AS IDENTITY`. Money = `NUMERIC(20,4)
 | is_active | bool | |
 
 ### account
-The container. One row per bank account, per wrapper (one PEA = one account), or per liability.
+The container. One row per bank account, per wrapper (one PEA = one account), or per liability (the loan's linked liability account, auto-created by Settings → Loans).
 | col | type | notes |
 |-----|------|-------|
 | id | PK | |
-| name | text | "BoursoBank PEA" |
-| institution | text | bank/broker/insurer name |
-| type | enum | `bank` \| `savings` \| `wrapper` \| `liability` |
-| wrapper_kind | enum null | `pea` \| `pea_pme` \| `av` \| `per` \| `pero` \| `perco` \| `pee` \| `cto` \| `livret_a` \| `ldds` \| `esop` |
-| currency | char(3) | default `EUR` |
-| metadata | jsonb | wrapper rules: `{opened_at, av_8y_date, pea_5y_date}` |
-| archived_at | ts null | |
+| name | string(200) | "BoursoBank PEA" |
+| type | enum, not null | `bank` \| `savings` \| `investment_wrapper` \| `liability` |
+| wrapper_type | enum null, string(20) | `PEA` \| `PEA_PME` \| `AV` \| `PER` \| `PERO` \| `PERCO` \| `PEE` \| `CTO` \| `LIVRET_A` \| `LDDS` \| `LEP` \| `ESOP` \| `OTHER` |
+| institution | string(200) null | bank/broker/insurer name |
+| currency | char(3), not null | default `EUR` |
+| owner_id | FK person, not null | |
+| joint_owner_id | FK person null | |
+| ownership_pct | numeric(5,2), not null | % of the account belonging to `owner_id` (rest to `joint_owner_id`), default 100.00 |
+| is_archived | bool | default false — archiving hides the account but preserves its transactions/history |
+| notes | text null | |
+| opened_at | date null | drives PEA-5yr/AV-8yr tax-exemption thresholds; null defaults to `created_at` |
+| country_code | char(2) null | null = France (the implicit default); used for Form 3916 foreign account declarations |
+| manual_balance | numeric(20,4) null | manual override of the computed balance, `bank`/`savings` accounts only — overrides the transaction-sum calculation outright when set (e.g. a Livret A the household doesn't import transactions for; a Settings → Accounts "fully filled" checkbox is a one-time convenience that fills this with the current legal cap, 22,950 €, for `wrapper_type = LIVRET_A`) |
+| created_at | timestamptz, not null | server default `now()` |
 
 ### account_owner  *(resolves joint ownership & splits)*
 | col | type | notes |
@@ -161,29 +168,32 @@ The container. One row per bank account, per wrapper (one PEA = one account), or
 | col | type | notes |
 |-----|------|-------|
 | id | PK | |
-| account_id | FK account (liability) | |
-| kind | enum | `mortgage` \| `car` \| `other` |
+| account_id | FK account (liability), not null | auto-created alongside the loan (Settings → Loans); never picked from an existing account |
+| name | string | |
+| type | enum | `mortgage` \| `car` \| `personal` \| `student` \| `other` |
 | principal | numeric(20,4) | original |
-| annual_rate | numeric(7,5) | nominal |
-| term_months | int | |
+| annual_rate | numeric(8,6) | nominal |
+| term_months | int | advisory only when `manual_payment` is set (see below) |
 | start_date | date | |
-| payment_day | int | |
-| insurance_monthly | numeric(20,4) null | assurance emprunteur |
-| method | enum | `constant_payment` (EMI) \| `constant_amortization` |
+| payment_day | int | default 5 |
+| currency | string(3) | default `EUR` |
+| extra_principal_paid | numeric(20,4) | running total of all prepayments applied so far (display only — does not itself drive the schedule recompute) |
+| manual_payment | numeric(20,4) null | optional override of the computed EMI, for entering an already-existing loan whose bank-quoted payment differs slightly from the theoretical French annuité-constante formula (rounding, insurance riders). When set, the schedule iterates until the balance reaches zero instead of running for exactly `term_months` periods |
+| notes | text null | |
 
 ### amortization_row  *(generated; cache of the schedule)*
 | col | type | notes |
 |-----|------|-------|
+| id | PK | |
 | loan_id | FK loan | |
 | period | int | 1..term |
-| due_date | date | |
+| payment_date | date | |
 | payment | numeric(20,4) | |
 | interest | numeric(20,4) | |
-| principal_paid | numeric(20,4) | |
+| principal | numeric(20,4) | |
 | balance | numeric(20,4) | remaining capital |
-| PK | (loan_id, period) | |
 
-> Prepayments insert an `extra_principal` event and trigger schedule recompute (term- or payment-reduction mode).
+> A prepayment (`POST /liabilities/{id}/prepay`, optionally preceded by a non-destructive `POST .../prepay/preview`) is anchored at an `applied_date`: rows on or before that date are left completely untouched, and only the rows after it are deleted and recomputed from the loan's real stored balance at that point — never a from-scratch recompute from `start_date`. Two modes: `reduction_mode="term"` (reduce duration — keeps the payment fixed, shortens the remaining term) and `reduction_mode="payment"` (reduce EMI — keeps the remaining period count fixed, lowers the payment). Both are implemented by `core/amortization.py::recompute_from_midpoint()`.
 
 ---
 

@@ -64,7 +64,10 @@ export const useCreateAccount = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: object) => apiClient.post("/accounts", data).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["networth"] });
+    },
   });
 };
 
@@ -73,7 +76,11 @@ export const useUpdateAccount = () => {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: number; [k: string]: unknown }) =>
       apiClient.patch(`/accounts/${id}`, data).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      // manual_balance can change here, which directly affects net worth.
+      qc.invalidateQueries({ queryKey: ["networth"] });
+    },
   });
 };
 
@@ -317,6 +324,60 @@ export const useLoanSummary = (loanId: number) =>
     queryFn: () => apiClient.get(`/liabilities/${loanId}/summary`).then(r => r.data),
     enabled: !!loanId,
   });
+
+const invalidateLoan = (
+  qc: ReturnType<typeof useQueryClient>, loanId?: number, invalidateNetWorth = true,
+) => {
+  qc.invalidateQueries({ queryKey: ["loans"] });
+  if (loanId) {
+    qc.invalidateQueries({ queryKey: ["loans", loanId, "schedule"] });
+    qc.invalidateQueries({ queryKey: ["loans", loanId, "summary"] });
+  }
+  qc.invalidateQueries({ queryKey: ["accounts"] });
+  if (invalidateNetWorth) qc.invalidateQueries({ queryKey: ["networth"] });
+};
+
+export const useCreateLoan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: object) => apiClient.post("/liabilities", data).then(r => r.data),
+    onSuccess: () => invalidateLoan(qc),
+  });
+};
+
+export const useUpdateLoan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: number; [k: string]: unknown }) =>
+      apiClient.patch(`/liabilities/${id}`, data).then(r => r.data),
+    // Cosmetic-only edit (name/type/payment_day/institution) — never changes a
+    // balance, so no need to refetch net worth.
+    onSuccess: (_d, vars) => invalidateLoan(qc, vars.id, false),
+  });
+};
+
+export const useDeleteLoan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/liabilities/${id}`),
+    onSuccess: () => invalidateLoan(qc),
+  });
+};
+
+export const usePreviewPrepayment = () =>
+  useMutation({
+    mutationFn: ({ id, ...data }: { id: number; amount: string; reduction_mode?: string; applied_date?: string }) =>
+      apiClient.post(`/liabilities/${id}/prepay/preview`, data).then(r => r.data),
+  });
+
+export const useApplyPrepayment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: number; amount: string; reduction_mode?: string; applied_date?: string }) =>
+      apiClient.post(`/liabilities/${id}/prepay`, data).then(r => r.data),
+    onSuccess: (_d, vars) => invalidateLoan(qc, vars.id),
+  });
+};
 
 // ── Net worth ─────────────────────────────────────────────────────────────────
 

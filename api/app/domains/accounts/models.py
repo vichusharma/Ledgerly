@@ -96,6 +96,10 @@ class Account(Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     opened_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    # Manual override of the computed balance (bank/savings only — see
+    # networth/service.py::_compute_account_balance) — e.g. a Livret A the
+    # household doesn't want to import transactions for.
+    manual_balance: Mapped[Decimal | None] = mapped_column(Numeric(20, 4), nullable=True)
     # Null means France (the implicit default for every existing account)
     # — used for Form 3916 foreign bank account declarations (Epic J).
     country_code: Mapped[str | None] = mapped_column(String(2), nullable=True)

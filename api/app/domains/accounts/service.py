@@ -76,6 +76,7 @@ class AccountService:
             notes=body.notes,
             opened_at=body.opened_at,
             country_code=body.country_code,
+            manual_balance=body.manual_balance,
         )
         return AccountOut.model_validate(a)
 

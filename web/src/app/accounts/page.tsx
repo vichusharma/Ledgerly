@@ -21,10 +21,14 @@ const showsWrapper = (type: string) => type === "investment_wrapper" || type ===
 const wrapperOptionsFor = (type: string) =>
   type === "savings" ? SAVINGS_PRODUCTS : WRAPPER_TYPES;
 
+// Current legal Livret A cap (unchanged since 2013) — a one-time convenience
+// fill, not a live-tracked value (see manual_balance's docs in DATA_MODEL.md).
+const LIVRET_A_CAP = "22950.00";
+
 const BLANK_FORM = {
   name: "", type: "bank", wrapper_type: "", institution: "",
   currency: "EUR", owner_id: "", joint_owner_id: "", ownership_pct: "100",
-  opened_at: "", country_code: "",
+  opened_at: "", country_code: "", manual_balance: "",
 };
 
 const PAGE_SIZE = 8;
@@ -150,6 +154,23 @@ function EditRow({ a, colSpan }: { a: any; colSpan: number }) {
             <label className="text-xs text-slate-500 dark:text-muted-foreground">{ax.ownershipPct}</label>
             <input type="number" min={1} max={100} value={editForm.ownership_pct} onChange={e => setEditForm(f => ({ ...f, ownership_pct: e.target.value }))} className={`${inputClass} money`} />
           </div>
+          {editForm.type === "savings" && (
+            <div className="col-span-2">
+              <label className="text-xs text-slate-500 dark:text-muted-foreground" title={ax.manualBalanceHint}>{ax.manualBalance}</label>
+              <input type="number" value={editForm.manual_balance} onChange={e => setEditForm(f => ({ ...f, manual_balance: e.target.value }))} className={`${inputClass} money max-w-xs`} />
+              {editForm.wrapper_type === "LIVRET_A" && (
+                <label className="flex items-center gap-2 mt-2 text-xs text-slate-600 dark:text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={editForm.manual_balance === LIVRET_A_CAP}
+                    onChange={e => setEditForm(f => ({ ...f, manual_balance: e.target.checked ? LIVRET_A_CAP : "" }))}
+                    className="rounded border-surface-border dark:border-border"
+                  />
+                  {ax.livretAFullyFilled}
+                </label>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex gap-2 mt-3">
           <button onClick={() => handleSave(a.id)} disabled={!editForm.name || !editForm.owner_id} className="bg-brand text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-brand-700">
@@ -448,6 +469,7 @@ export default function AccountsPage() {
       ownership_pct: parseFloat(form.ownership_pct),
       opened_at: form.opened_at || null,
       country_code: form.country_code || null,
+      manual_balance: form.manual_balance !== "" ? form.manual_balance : null,
     });
     setForm(BLANK_FORM);
     setShowForm(false);
@@ -464,6 +486,7 @@ export default function AccountsPage() {
       ownership_pct: String(a.ownership_pct),
       opened_at: a.opened_at || "",
       country_code: a.country_code || "",
+      manual_balance: a.manual_balance != null ? String(a.manual_balance) : "",
     });
     setEditingId(a.id);
     setArchiveConfirmId(null);
@@ -481,6 +504,7 @@ export default function AccountsPage() {
       ownership_pct: parseFloat(editForm.ownership_pct),
       opened_at: editForm.opened_at || null,
       country_code: editForm.country_code || null,
+      manual_balance: editForm.manual_balance !== "" ? editForm.manual_balance : null,
     });
     setEditingId(null);
   };
@@ -600,6 +624,23 @@ export default function AccountsPage() {
                   <label className="text-xs text-slate-500 dark:text-muted-foreground">{ax.ownershipPct}</label>
                   <input type="number" min={1} max={100} value={form.ownership_pct} onChange={e => setForm(f => ({ ...f, ownership_pct: e.target.value }))} className={`${inputClass} money`} />
                 </div>
+                {form.type === "savings" && (
+                  <div className="col-span-2">
+                    <label className="text-xs text-slate-500 dark:text-muted-foreground" title={ax.manualBalanceHint}>{ax.manualBalance}</label>
+                    <input type="number" value={form.manual_balance} onChange={e => setForm(f => ({ ...f, manual_balance: e.target.value }))} className={`${inputClass} money max-w-xs`} />
+                    {form.wrapper_type === "LIVRET_A" && (
+                      <label className="flex items-center gap-2 mt-2 text-xs text-slate-600 dark:text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={form.manual_balance === LIVRET_A_CAP}
+                          onChange={e => setForm(f => ({ ...f, manual_balance: e.target.checked ? LIVRET_A_CAP : "" }))}
+                          className="rounded border-surface-border dark:border-border"
+                        />
+                        {ax.livretAFullyFilled}
+                      </label>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button onClick={handleCreate} disabled={!form.name || !form.owner_id} className="bg-brand text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-brand-700">

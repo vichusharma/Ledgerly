@@ -1,7 +1,13 @@
 # Test stack: Postgres only + ephemeral API container for integration tests.
 # Usage:
 #   docker compose -f docker-compose.test.yml run --rm api-test
-version: "3.9"
+#
+# `name:` gives this its own Compose project, separate from the main
+# docker-compose.yml stack (which otherwise shares the same default
+# "ledgerly" project name derived from the directory — causing every test
+# run to warn about the main stack's containers as "orphans" and, more
+# seriously, contend over the same project namespace/network state).
+name: ledgerly-test
 
 services:
   db-test:

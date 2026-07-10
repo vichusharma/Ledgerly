@@ -159,6 +159,13 @@ class NetWorthService:
     ) -> Decimal:
         """Compute the current balance for any account type."""
         if account.type in (AccountType.bank, AccountType.savings):
+            # A manually-entered balance (e.g. a Livret A the household doesn't
+            # import transactions for) overrides the computed sum outright —
+            # same "explicit value wins" precedent as investment_wrapper's
+            # latest-valuation-wins rule below.
+            if account.manual_balance is not None:
+                return account.manual_balance
+
             # Sum all non-split-parent transactions up to as_of to get running balance
             result = await self.session.execute(
                 select(func.sum(Transaction.amount)).where(
