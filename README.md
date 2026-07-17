@@ -3,6 +3,10 @@
 > Local-first personal finance for French households — Finary's analytics meets YNAB's control, running entirely on your own machine.
 
 All data stays on your computer. No cloud sync, no subscriptions, no telemetry.
+---
+## ⭐ Like this project?
+
+If you find this repository useful, please **give it a star**.
 
 ---
 
